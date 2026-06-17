@@ -1,4 +1,4 @@
-# AICarRacing — 2-Action PPO (팀 B)
+# AICarRacing — 2-Action PPO
 
 Gymnasium **CarRacing-v3** 환경에서 픽셀 입력만으로 주행하는 **2-action PPO** 에이전트.
 붕괴된 학습 라인 **복구** → **무작위 정적 장애물 회피** 확장 → **2-action vs native 3-action** 행동 파라미터화 대조 실험까지 다룬다.
