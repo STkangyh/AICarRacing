@@ -1,4 +1,7 @@
-"""Build COMBINED_REPORT.md = REPORT.md (phase 1) + bridge + REPORT_obstacles.md
+"""⚠️ 주의(2026-06): COMBINED_REPORT.md 는 생성 후 직접 손편집(중복 제거 dedup_report.py + 팀원 코드 보강)되었다.
+이 스크립트를 다시 실행하면 그 편집이 전부 사라진다. 정본은 COMBINED_REPORT.md 이며, 이 스크립트는 *초기 1회 생성용* 기록으로만 보존한다. 재실행 금지.
+
+Build COMBINED_REPORT.md = REPORT.md (phase 1) + bridge + REPORT_obstacles.md
 (phase 2), with figures/frames inserted near relevant sections and a figure/video
 appendix. Tolerant: if an anchor is missing, the figure falls back to the appendix
 so nothing is silently dropped. Then convert to docx/pdf via pandoc/soffice (separately)."""
