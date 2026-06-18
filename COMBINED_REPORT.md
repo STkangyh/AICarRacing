@@ -11,7 +11,7 @@ date: "2026-06-15"
 
 팀 B · 2026-06-15 · 환경: Gymnasium CarRacing-v3 / CarRacingObstacles-v0
 
-> 본 문서는 채점 루브릭 순서를 따른다. **Part 0**(실행 환경·설치 / 문제·State·Reward 정의 / PPO 이론) → **Part I**(2-action 구현·복구 + 3-action 비교, 무장애물) → **Part II**(장애물 입력 추가: 환경·round-1·크기·진단·엔트로피·**2 vs 3 action 대조**) → 부록(그림·GIF). 표는 원문 그대로, 그림·주행 프레임은 관련 절에 삽입했다.
+> 본 문서는 채점 루브릭 순서를 따른다. **Part 0**(실행 환경·설치 / 문제·State·Reward 정의 / PPO 이론) → **Part I**(2-action 구현·복구 + 3-action 비교, 무장애물) → **Part II**(장애물 입력 추가: 환경·round-1·크기·진단·엔트로피·**2 vs 3 action 대조**). 표는 원문 그대로, 그림·주행 프레임은 관련 절에 삽입했다.
 
 ```{=openxml}
 <w:p><w:r><w:br w:type="page"/></w:r></w:p>
@@ -950,27 +950,7 @@ CUDA_VISIBLE_DEVICES=0 python -m scripts.train_ppo_2action_obstacles \
 12. **action 파라미터화는 공짜가 아니다 — 2-action의 ActionWrapper가 유용한 inductive bias.** native 3-action은 동일 조건에서 clean 229(2-action 415의 ~55%): 독립 gas/brake가 동시입력 퇴화영역·무방비 brake·~2.9배 탐색부피를 만들어 std 발산/저성능을 유발.
 13. **하이퍼파라미터는 차원에 따라 재튜닝하라.** 2D에서 안정적이던 `ent_coef 0.01`이 3D에선 entropy를 발산(2.0→5.33)시켰다 — `ent항/policy항` 비율로 균형을 확인하라.
 
-## 9. 구현 산출물 (커밋 안 함)
-
-| 파일 | 상태 | 내용 |
-|---|---|---|
-| `src/ppo_agent_2.py` | 신규 | 2-action PPO fork — per-minibatch KL early-stop + env-step 코사인 LR |
-| `src/car_racing_obstacles.py` | 신규 | `CarRacingObstacles-v0` 환경 (랜덤 크기·픽셀 렌더·충돌 패널티·segfault/loop-spawn 픽스) |
-| `src/env_wrappers.py` | 수정 | `ActionWrapper`(2D `[steer,throttle]`→3D `[steer,gas,brake]`) 추가 |
-| `scripts/train_ppo_2action2.py` | 신규 | 베이스 2-action 학습 (LR/안정화 config, `RewardShapingWrapper` 인라인) |
-| `scripts/train_ppo_2action_obstacles.py` | 신규 | 장애물 회피 학습 fork (코너 패널티·로깅 픽스·CLI 다수) |
-| `scripts/train_ppo_3action_obstacles.py` | 신규 | 3-action 대조군 학습 (ActionWrapper 미적용, native 3D, evaluated641서 fine-tune) |
-| `scripts/evaluate_agent_2action.py` | 분리(베이스) | 장애물 코드 제거 → 베이스(CarRacing-v3) 전용 clean 평가기 |
-| `scripts/evaluate_agent_2action_obstacles.py` | 신규 | 장애물 전용 평가기 (`CarRacingObstacles-v0` 항상 ON) |
-| `scripts/evaluate_agent_3action_obstacles.py` | 신규 | 3-action 장애물 평가기 |
-| `scripts/record_video.py` | 신규 | 평가 리플레이 → mp4 녹화 |
-| `scripts/dump_tb_scalars.py` | 신규 | TensorBoard 이벤트 → 텍스트 표 + PNG 덤프 (다중 run 오버레이) |
-| `scripts/make_report_figs.py`, `build_combined_report.py` | 신규 | 보고서 그림·합본 생성 도구 |
-| `requirements.txt`, `Dockerfile`, `build_docker.sh` | 신규 | 재현 환경 (pip / 도커 이미지) |
-
-**학습 스크립트 CLI 오버라이드**: `--checkpoint --steps --seed --log-dir --save-dir --n-obstacles --obstacle-size-min --obstacle-size-max --track-penalty --accel-turn-weight --ent-coef`
-
-## 10. 부록 — 재현 커맨드
+## 9. 부록 — 재현 커맨드
 
 > 학습=원격 GPU(conda `teamB_env`), 평가/녹화=로컬(conda `racing`). 스크립트는 저장소 루트에서 `python -m scripts.NAME`으로 실행.
 
@@ -1014,38 +994,3 @@ python scripts/record_video.py --model ./models/obs_small/best_model.pth \
 ```{=openxml}
 <w:p><w:r><w:br w:type="page"/></w:r></w:p>
 ```
-
-# 부록 Z — 그림 · 영상(GIF) 인덱스
-
-## Z.1 생성 그림 (figures)
-모든 차트는 본문 실험 수치로 생성(`scripts/make_report_figs.py`). 파일은 `report_assets/`에 있다.
-
-- `fig_entropy_divergence.png` — entropy 발산(3-action ent0.01) vs 안정(2-action / 3-action ent0.003)
-- `fig_reward_curve.png` — shaped 학습 곡선 2 vs 3 action
-- `fig_clean_progression.png` — 장애물 clean 성능 진행 + 3-action
-- `fig_2v3_grouped.png` — 2 vs 3 action clean 비교(Mean/Median/Min)
-- `fig_corner_lever.png` — 코너 패널티 0.5→0.2 효과
-
-## Z.2 주행 프레임 (정지 컷)
-
-| ![Before — seed42, 누적 −68 (장애물 정면 충돌)](report_assets/frame_before_seed42_r-68.png){width=98%} | ![After — seed42, 누적 +323 (회피 성공)](report_assets/frame_after_seed42_r323.png){width=98%} |
-|:--:|:--:|
-| **Before — seed42, 누적 −68 (장애물 정면 충돌)** | **After — seed42, 누적 +323 (회피 성공)** |
-
-![장애물 회피 weaving — seed43, 보상 707](report_assets/frame_after_seed43_r707.png){width=55%}
-
-![랜덤 크기 장애물 회피 — obs_small seed44, 보상 645](report_assets/frame_obs_small_r645.png){width=55%}
-
-![베이스 무장애물 주행 — seed46, 보상 838](report_assets/frame_base_r838.png){width=55%}
-
-
-## Z.3 애니메이션 GIF (별도 첨부)
-> docx/PDF는 애니메이션을 표시하지 못하므로(첫 프레임만 정지), 아래 GIF 파일을 **별도로 열어** 동작을 확인할 것. 파일은 `report_assets/`에 있다. 원본 mp4는 각 `videos_*/` 폴더.
-
-| 장면 | GIF 파일 | 원본 mp4 |
-|---|---|---|
-| 베이스 주행 (r838) | `report_assets/gif_base_r838.gif` | `videos_2action_final/best_model_ep5_seed46_r838.mp4` |
-| 장애물 학습 전 충돌 (seed42, −68) | `report_assets/gif_before_seed42_r-68.gif` | `videos_obstacles_before/best_model_ep1_seed42_r-68.mp4` |
-| 장애물 회피 (seed42, +323) | `report_assets/gif_after_seed42_r323.gif` | `videos_obstacles_after/best_model_ep1_seed42_r323.mp4` |
-| 장애물 회피 weaving (seed43, 707) | `report_assets/gif_after_seed43_r707.gif` | `videos_obstacles_after/best_model_ep2_seed43_r707.mp4` |
-| 랜덤크기 회피 (seed44, 645) | `report_assets/gif_obs_small_r645.gif` | `videos_obs_small/best_model_ep3_seed44_r645.mp4` |
