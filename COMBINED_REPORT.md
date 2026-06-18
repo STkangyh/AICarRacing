@@ -106,7 +106,7 @@ python scripts/record_video.py --model ./models/ppo_2action4/best_model.pth --ep
 
 체크포인트는 실행(run)별로 `./models/<run_name>/best_model.pth`에 저장되며, 학습 로그는 `./logs/`, 녹화 영상은 `./videos*/`에 위치한다.
 
-> **채점자 주의 — 체크포인트 입수:** `.gitignore`에 `/models`가 있어 학습된 체크포인트는 git에 포함되지 않는다. **제출 번들에 핵심 평가용 체크포인트를 별도 동봉**했다:
+> **체크포인트 입수:** **제출 번들에 핵심 평가용 체크포인트를 별도 동봉**했다:
 >
 > | 모델 | 경로 | clean 성능 | 비고 |
 > |---|---|---|---|
@@ -123,7 +123,7 @@ python scripts/record_video.py --model ./models/ppo_2action4/best_model.pth --ep
 
 ## 1. 문제 및 환경 정의
 
-본 프로젝트가 선택한 환경은 Gymnasium **`CarRacing-v3`**(연속 제어, top-down 레이싱)이며, 이를 상속해 **무작위 정적 장애물 회피** 과제(`CarRacingObstacles-v0`)를 직접 정의해 확장했다. 목표는 (1) 픽셀 관측만으로 트랙을 빠르고 안정적으로 주행하는 2-action PPO 에이전트를 학습하고, (2) 도로 위 장애물을 회피하도록 일반화하며, (3) 2-action(`[steering, throttle]`)과 native 3-action(`[steering, gas, brake]`) 행동 파라미터화를 동일 조건에서 비교하는 것이다. 강화학습의 핵심인 **상태(State)와 보상(Reward)** 정의를 아래에 상세히 기술한다.
+본 프로젝트가 선택한 환경은 Gymnasium **`CarRacing-v3`**(연속 제어, top-down 레이싱)이며, 이를 상속해 **무작위 정적 장애물 회피** 과제(`CarRacingObstacles-v0`)를 직접 정의해 확장했다. 목표는 (1) 픽셀 관측만으로 트랙을 빠르고 안정적으로 주행하는 2-action PPO 에이전트를 학습하고, (2) 도로 위 장애물을 회피하도록 일반화하며, (3) 2-action(`[steering, throttle]`)과 3-action(`[steering, gas, brake]`) 행동 파라미터화를 동일 조건에서 비교하는 것이다. 강화학습의 핵심인 **상태(State)와 보상(Reward)** 정의를 아래에 기술한다.
 
 ## 1-A. State(상태) 정의
 
@@ -151,7 +151,7 @@ env = FrameStack(env, frame_stack)# Gray(96,96) -> (4,96,96)
 
 2. **Grayscale 변환.** `GrayScaleObservation`이 RGB `(H,W,3)`를 OpenCV `cv2.cvtColor(..., COLOR_RGB2GRAY)`로 단일 채널 `(H,W)` uint8로 축소한다(`env_wrappers.py:25-29`). 관측 공간도 `Box(low=0, high=255, shape=(96,96), dtype=uint8)`로 갱신된다(`env_wrappers.py:22-23`). 채널 수를 1/3로 줄여 입력 차원을 낮추는 동시에, 뒤이은 FrameStack의 채널 축을 "시간(프레임)" 전용으로 비워 둔다.
 
-3. **FrameStack(4) — 시간 정보 주입.** `FrameStack`은 최근 `k=4`개의 그레이스케일 프레임을 `deque(maxlen=k)`에 모아 `np.stack(..., axis=0)`로 채널 축에 쌓는다(`env_wrappers.py:88, 101-104, 119-123`). 그 결과 정책에 들어가는 단일 상태 텐서는 `(4, 96, 96)`이 된다(관측 공간 `(k,)+(H,W)`, `env_wrappers.py:95`). 단일 정지 프레임만으로는 차량의 **속도·진행 방향 같은 동역학을 추론할 수 없기** 때문에, 연속 4프레임을 함께 제공해 CNN이 프레임 간 차이로 운동 정보를 복원하도록 한다(클래스 docstring `env_wrappers.py:70-72`). `reset()` 시에는 첫 관측을 4번 복제해 버퍼를 채운다(`env_wrappers.py:113-117`).
+3. **FrameStack(4) — 시간 정보 주입.** `FrameStack`은 최근 `k=4`개의 그레이스케일 프레임을 `deque(maxlen=k)`에 모아 `np.stack(..., axis=0)`로 채널 축에 쌓는다(`env_wrappers.py:88, 101-104, 119-123`). 그 결과 정책에 들어가는 단일 상태 텐서는 `(4, 96, 96)`이 된다(관측 공간 `(k,)+(H,W)`, `env_wrappers.py:95`). 단일 정지 프레임만으로는 차량의 **속도, 진행 방향 같은 동역학을 추론할 수 없기** 때문에, 연속 4프레임을 함께 제공해 CNN이 프레임 간 차이로 운동 정보를 복원하도록 한다(클래스 docstring `env_wrappers.py:70-72`). `reset()` 시에는 첫 관측을 4번 복제해 버퍼를 채운다(`env_wrappers.py:113-117`).
 
 4. **`/255` 정규화.** uint8 `[0,255]` 상태는 CNN 특징 추출기 내부에서 `observations.float() / 255.0`로 `[0,1]`로 정규화된 뒤 합성곱 층에 들어간다(`cnn_model.py:96-98`). 정규화가 환경 Wrapper가 아니라 모델 `forward` 내부에서 일어나므로, 리플레이/버퍼에는 메모리 효율이 좋은 uint8 그대로 저장하고 정규화는 순전파 시점에 1회 수행된다(`ppo_agent_2.py:289, 376, 493` 주석 "normalization inside extractor"). 더미 forward로 flatten 크기를 잴 때도 동일하게 `/255.0`를 적용한다(`cnn_model.py:73`). 첫 합성곱의 입력 채널 수는 관측 공간의 0번째 축, 즉 스택 프레임 수(`n_input_channels = observation_space.shape[0]` = 4)로 설정된다(`cnn_model.py:49, 53`).
 
@@ -178,24 +178,24 @@ env = FrameStack(env, frame_stack)# Gray(96,96) -> (4,96,96)
 
 ## 1-B. Reward(보상) 정의
 
-본 절은 학습/평가에 사용된 보상 신호를 세 층(layer)으로 나누어 정의한다. (1) 네이티브 CarRacing 보상, (2) 장애물 충돌 패널티, (3) 학습 전용 reward shaping. 모든 수식과 가중치는 실제 코드에서 그대로 인용했다.
+본 절은 학습/평가에 사용된 보상 신호를 세 층(layer)으로 나누어 정의한다. (1) 베이스라인 CarRacing 보상, (2) 장애물 충돌 패널티, (3) 학습 전용 reward shaping. 모든 수식과 가중치는 실제 코드에서 그대로 인용했다.
 
 ### 보상 신호의 3개 층 구조
 
 ```
 최종 step reward
-  = [네이티브 CarRacing 보상]                  ← 항상 적용 (학습/평가 공통)
+  = [베이스라인 CarRacing 보상]                  ← 항상 적용 (학습/평가 공통)
   + [장애물 충돌 패널티]                        ← 장애물 환경에서만 적용 (학습/평가 공통)
   + [reward shaping 항들]                       ← 학습 시에만 적용, 평가 시 제거
 ```
 
 **핵심 구분 — shaped reward vs clean reward**
 - **shaped reward (학습 시):** 위 3개 층을 모두 합산한 값. 에이전트가 실제로 받는 학습 신호이며, 속도/이탈/조향 등 행동 유도 항이 포함된다. shaping wrapper는 학습 스크립트에서 `use_reward_shaping=True`일 때만 환경에 부착된다 (`scripts/train_ppo_2action_obstacles.py:109-115`).
-- **clean reward (평가 시):** shaping을 제거하고 **네이티브 보상 + 장애물 패널티만** 합산한 값. 보고서의 결과 수치(베이스 트랙 667점, 장애물 환경 415점 등)는 모두 이 **clean reward** 기준이다. shaping 항(특히 velocity 보상)은 점수를 인위적으로 부풀리므로, 모델 간/환경 간 비교는 반드시 네이티브 척도로만 수행했다.
+- **clean reward (평가 시):** shaping을 제거하고 **베이스라인 보상 + 장애물 패널티만** 합산한 값. 보고서의 결과 수치(베이스 트랙 667점, 장애물 환경 415점 등)는 모두 이 **clean reward** 기준이다. shaping 항(특히 velocity 보상)은 점수를 인위적으로 부풀리므로, 모델 간/환경 간 비교는 반드시 베이스라인 척도로만 수행했다.
 
 ---
 
-### (1) 네이티브 CarRacing 보상 (gymnasium `car_racing`)
+### (1) 베이스라인 CarRacing 보상 (gymnasium `car_racing`)
 
 학습/평가 양쪽에서 항상 적용되는 원본 환경 보상이다. (gymnasium 설치본 `gymnasium/envs/box2d/car_racing.py` 기준)
 
@@ -212,7 +212,7 @@ env = FrameStack(env, frame_stack)# Gray(96,96) -> (4,96,96)
 
 ### (2) 장애물 충돌 패널티 (`src/car_racing_obstacles.py`)
 
-네이티브 환경을 상속한 장애물 변형 환경의 추가 패널티. 학습/평가 공통으로 적용되며, **penalty-only 설계**(충돌해도 에피소드를 종료시키지 않음)다.
+베이스라인 환경을 상속한 장애물 변형 환경의 추가 패널티. 학습/평가 공통으로 적용되며, **penalty-only 설계**(충돌해도 에피소드를 종료시키지 않음)다.
 
 | 항목 | 수식 / 값 | 적용 조건 | file:line |
 |---|---|---|---|
@@ -231,7 +231,7 @@ env = FrameStack(env, frame_stack)# Gray(96,96) -> (4,96,96)
 | 항목 | 수식 | 가중치(최종 사용값) | 적용 조건 | file:line |
 |---|---|---|---|---|
 | velocity (속도 보상) | `reward += speed * velocity_weight` | `velocity_reward_weight = 0.003` | **on-track**(`off_track=False`)이고 `speed > 0`일 때만 | wrapper `:196-199`, config `:55` |
-| survival (생존 보상) | `reward += survival_reward` | `survival_reward = 0.0` (비활성) | (현재 0이라 무효과; 정지 버티기 꼼수 차단 목적으로 제거) | config `:56` |
+| survival (생존 보상) | `reward += survival_reward` | `survival_reward = 0.0` (비활성) | (현재 0이라 무효과; 정지 버티기 차단 목적으로 제거) | config `:56` |
 | track_penalty (이탈 패널티) | `reward -= track_penalty` | `track_penalty = 1.0` | **off-track**일 때 (이때 velocity 보상은 미지급) | wrapper `:188-192`, config `:57` |
 | steering_smooth (조향 급변) | `reward -= |steer - last_steer| * steering_smooth_weight` | `steering_smooth_weight = 0.001` | 매 스텝 | wrapper `:202-205`, config `:58` |
 | accel_turn (코너 가속) | `reward -= weight * gas * |steer|` (`gas = max(0, action[1])`) | 장애물: **최종 0.2** (config 기본 0.5; CLI로 하향) / 베이스: **항 자체가 미구현** | `weight > 0`이고 조향 중 가속할 때만(직진 가속은 비용 0) | wrapper `:213-217`, config `:59`, CLI `:268-269` |
@@ -241,7 +241,7 @@ env = FrameStack(env, frame_stack)# Gray(96,96) -> (4,96,96)
 **off-track 판정:** 관측 픽셀의 차량 영역(`obs[84:94, 42:54]`)에서 초록 채널 평균 > 150 이고 빨강 채널 평균 < 100 이면 잔디 위로 간주한다 (`scripts/train_ppo_2action_obstacles.py:181-185`).
 
 **weight 튜닝 메모(코드 주석 근거):**
-- `velocity_weight`는 0.03이면 step당 ~0.9로 네이티브 보상을 압도해 0.003으로 낮춤 (실속도 ≈ 20~60) (`:55`).
+- `velocity_weight`는 0.03이면 step당 ~0.9로 베이스라인 보상을 압도해 0.003으로 낮춤 (실속도 ≈ 20~60) (`:55`).
 - `accel_turn_weight`(코너 가속 억제)는 장애물 스크립트에만 구현돼 있고 **베이스(train2) RewardShapingWrapper에는 항 자체가 없다**(인자만 받고 버림). 장애물 스크립트도 config 기본값은 0.5이나, 실험 결과 **0.5는 reward만 깎고 트랙 이탈(실제 원인은 장애물 충돌)을 줄이지 못해** CLI로 **0.2로 하향한 것이 최종값**이다(상세는 Part II 3절(진단) 참조). 즉 "코너 패널티"는 이탈의 진짜 레버가 아니었다.
 - `steering_smooth_weight`는 0.01이 움직임을 과도하게 방해해 0.001로 대폭 하향했다 (`:58`).
 
@@ -249,13 +249,7 @@ env = FrameStack(env, frame_stack)# Gray(96,96) -> (4,96,96)
 
 ### 요약
 
-학습 신호(shaped) = 네이티브 보상(`-0.1`/프레임, `+1000/N`/타일, 이탈 `-100`+종료) + 장애물 패널티(충돌 스텝당 `-15`, 비종료, 스텝당 1회) + shaping(velocity `+speed*0.003` on-track, off-track `-1.0`, steering_smooth `-0.001*Δsteer`, accel_turn `-weight*gas*|steer|`). 평가/보고 점수는 shaping을 제거한 **clean reward**(네이티브 + 장애물 패널티)로만 측정하여 모델·환경 간 비교의 공정성을 확보했다.
-
-**관련 파일 (절대경로)**
-- `/Users/younghoon-kang/AICarRacing/src/car_racing_obstacles.py` — 장애물 환경 및 충돌 패널티
-- `/Users/younghoon-kang/AICarRacing/scripts/train_ppo_2action_obstacles.py` — RewardShapingWrapper(장애물, accel_turn=0.5) + config
-- `/Users/younghoon-kang/AICarRacing/scripts/train_ppo_2action2.py` — RewardShapingWrapper(베이스, accel_turn=0.0) + config
-- `/Users/younghoon-kang/anaconda3/envs/racing/lib/python3.11/site-packages/gymnasium/envs/box2d/car_racing.py` — 네이티브 CarRacing 보상
+학습 신호(shaped) = 베이스라인 보상(`-0.1`/프레임, `+1000/N`/타일, 이탈 `-100`+종료) + 장애물 패널티(충돌 스텝당 `-15`, 비종료, 스텝당 1회) + shaping(velocity `+speed*0.003` on-track, off-track `-1.0`, steering_smooth `-0.001*Δsteer`, accel_turn `-weight*gas*|steer|`). 평가/보고 점수는 shaping을 제거한 **clean reward**(베이스라인 + 장애물 패널티)로만 측정하여 모델, 환경 간 균일하게 비교하고자 했다.
 
 ```{=openxml}
 <w:p><w:r><w:br w:type="page"/></w:r></w:p>
@@ -347,7 +341,7 @@ entropy_loss = -torch.mean(entropy)
 loss = policy_loss + self.ent_coef * entropy_loss + self.vf_coef * value_loss
 ```
 
-> 부호 주의: FP32 경로(`learn`)는 `entropy_loss = -mean(entropy)`로 정의한 뒤 `+ ent_coef·entropy_loss`를 더하고(`:513`, `:516`), 혼합정밀 경로(`learn_mixed_precision`)는 `entropy_loss = mean(entropy)`로 두고 `- ent_coef·entropy_loss`를 뺀다(`:395`, `:398`). 둘 다 **엔트로피를 최대화(보너스)** 하는 동일한 효과로, 요청한 `L = policy + vf_coef·value - ent_coef·entropy` 식과 일치한다.
+> FP32 경로(`learn`)는 `entropy_loss = -mean(entropy)`로 정의한 뒤 `+ ent_coef·entropy_loss`를 더하고(`:513`, `:516`), 혼합정밀 경로(`learn_mixed_precision`)는 `entropy_loss = mean(entropy)`로 두고 `- ent_coef·entropy_loss`를 뺀다(`:395`, `:398`). 둘 다 **엔트로피를 최대화(보너스)** 하는 동일한 효과로, 요청한 `L = policy + vf_coef·value - ent_coef·entropy` 식과 일치한다.
 
 학습 안정화를 위해 갱신마다 전체 파라미터에 대한 **gradient clipping** 을 적용한다(`max_grad_norm = 0.5`, `src/ppo_agent_2.py:524`).
 
@@ -558,7 +552,7 @@ speed = float((vx * vx + vy * vy) ** 0.5)
 이하 4의 모든 수치는 다음 정의를 따른다. 각 표는 본 소절을 참조한다.
 
 - **shaped reward**: 학습 시 `RewardShapingWrapper`(velocity/track/steering/accel-turn 항)가 더해진 보상. 체크포인트에 "임베디드 mean_reward"로 저장되는 값이 이것이다.
-- **clean reward**: 평가 시 `RewardShapingWrapper`를 **제거**하고(셰이핑 항을 전부 끔) 환경의 **네이티브 보상만** 측정한 값. 셰이핑 제거가 끄는 것은 정확히 velocity reward / track penalty / steering-smooth penalty / accel-turn penalty의 4개 항이다.
+- **clean reward**: 평가 시 `RewardShapingWrapper`를 **제거**하고(셰이핑 항을 전부 끔) 환경의 **베이스라인 보상만** 측정한 값. 셰이핑 제거가 끄는 것은 정확히 velocity reward / track penalty / steering-smooth penalty / accel-turn penalty의 4개 항이다.
 - **공통 평가 조건**: 베이스 clean 평가 = **100 episodes, seed 42, device cpu**(재현성). 장애물 clean 평가 = **50 episodes, seed 42, `--obstacles`, device cpu**. 모든 결과는 **accel-turn 패널티 미적용(weight=0.0)** 상태의 라운드-1 결과다(round-2 accel-turn 학습은 미수행).
 - **3-action 비교값(674.55 / 637.95)의 출처**: 이는 clean 평가가 아니라 해당 저장 모델의 **저장 시점 임베디드 shaped mean**이다. 따라서 2-action clean 값과 직접 동일조건 비교는 아니며 "동급 수준" 참고치로 본다.
 
