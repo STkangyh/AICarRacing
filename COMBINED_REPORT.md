@@ -167,7 +167,7 @@ env = FrameStack(env, frame_stack)# Gray(96,96) -> (4,96,96)
 
 장애물 환경의 핵심 설계는, 장애물을 **관측 픽셀 안에 흰색(255)으로 그려 넣어 픽셀 기반 에이전트가 인지 가능하게** 만든 점이다. 각 장애물은 실제 Box2D 정적 물체(`CreateStaticBody`)인 동시에(`car_racing_obstacles.py:188-194`), 그 사각형 quad가 `self.road_poly`에 `(quad, OBSTACLE_COLOR)`로 추가되어 렌더 프레임에 그려진다(`car_racing_obstacles.py:196-203`).
 
-이것이 중요한 이유는 **에이전트의 유일한 입력이 픽셀이기 때문**이다. 물리 충돌만 존재하고 화면에 그려지지 않으면, 상태(이미지)에는 장애물이 전혀 나타나지 않아 에이전트가 회피를 학습할 단서가 없다. 모듈 docstring이 이를 명시한다: *"the agent's input is pixels: the obstacle must be visible in the 96x96 observation to be avoidable"*(`car_racing_obstacles.py:7-9`).
+이것이 중요한 이유는 **에이전트의 유일한 입력이 픽셀이기 때문**이다. 물리 충돌만 존재하고 화면에 그려지지 않으면, 상태(이미지)에는 장애물이 전혀 나타나지 않아 에이전트가 회피를 학습할 단서가 없다.
 
 색을 흰색으로 고른 것도 상태 가시성 때문이다. 그레이스케일 변환 후 도로는 약 102, 잔디는 약 162인데 장애물은 255가 되어 **가장 강한 대비**로 부각된다(`car_racing_obstacles.py:9-10, 35-36`의 `OBSTACLE_COLOR = (255, 255, 255)`). 정규화 후에도 장애물 픽셀은 1.0, 도로는 약 0.4로 분리되어 CNN이 쉽게 식별한다. 또한 장애물 배치는 `self.np_random`을 사용해 시드별로 재현 가능하므로(`car_racing_obstacles.py:14, 175, 182`), 동일 시드에서 동일한 상태 분포가 보장된다.
 
@@ -188,7 +188,6 @@ env = FrameStack(env, frame_stack)# Gray(96,96) -> (4,96,96)
   + [reward shaping 항들]                       ← 학습 시에만 적용, 평가 시 제거
 ```
 
-**핵심 구분 — shaped reward vs clean reward**
 - **shaped reward (학습 시):** 위 3개 층을 모두 합산한 값. 에이전트가 실제로 받는 학습 신호이며, 속도/이탈/조향 등 행동 유도 항이 포함된다. shaping wrapper는 학습 스크립트에서 `use_reward_shaping=True`일 때만 환경에 부착된다 (`scripts/train_ppo_2action_obstacles.py:109-115`).
 - **clean reward (평가 시):** shaping을 제거하고 **베이스라인 보상 + 장애물 패널티만** 합산한 값. 보고서의 결과 수치(베이스 트랙 667점, 장애물 환경 415점 등)는 모두 이 **clean reward** 기준이다. shaping 항(특히 velocity 보상)은 점수를 인위적으로 부풀리므로, 모델 간/환경 간 비교는 반드시 베이스라인 척도로만 수행했다.
 
@@ -205,7 +204,7 @@ env = FrameStack(env, frame_stack)# Gray(96,96) -> (4,96,96)
 | 플레이필드 이탈 | `step_reward = -100` + **에피소드 종료**(`terminated=True`) | `abs(x) > PLAYFIELD or abs(y) > PLAYFIELD` | `car_racing.py:579-582` |
 | 랩 완주 | (보상 없음) + **에피소드 종료** | 모든 타일 통과 또는 새 랩 | `car_racing.py:574-577` |
 
-설계 의미: 매 프레임 -0.1이 부과되므로 빨리 완주할수록 점수가 높다. 트랙 N개 타일을 모두 통과하면 누적 +1000, 732프레임에 완주 시 `1000 - 0.1*732 = 926.8`이 만점에 가까운 기준값이다 (`car_racing.py:140-141` docstring). 단, 플레이필드 이탈은 -100 + 즉시 사망이라 가장 큰 페널티다.
+매 프레임 -0.1이 부과되므로 빨리 완주할수록 점수가 높다. 트랙 N개 타일을 모두 통과하면 누적 +1000, 732프레임에 완주 시 `1000 - 0.1*732 = 926.8`이 만점에 가까운 기준값이다 (`car_racing.py:140-141` docstring). 단, 플레이필드 이탈은 -100 + 즉시 사망이라 가장 큰 페널티다.
 
 ---
 
@@ -239,7 +238,7 @@ env = FrameStack(env, frame_stack)# Gray(96,96) -> (4,96,96)
 
 **off-track 판정:** 관측 픽셀의 차량 영역(`obs[84:94, 42:54]`)에서 초록 채널 평균 > 150 이고 빨강 채널 평균 < 100 이면 잔디 위로 간주한다 (`scripts/train_ppo_2action_obstacles.py:181-185`).
 
-**weight 튜닝 메모(코드 주석 근거):**
+**weight 튜닝:**
 - `velocity_weight`는 0.03이면 step당 ~0.9로 베이스라인 보상을 압도해 0.003으로 낮춤 (실속도 ≈ 20~60) (`:55`).
 - `accel_turn_weight`(코너 가속 억제)는 장애물 스크립트에만 구현돼 있고 **베이스(train2) RewardShapingWrapper에는 항 자체가 없다**(인자만 받고 버림). 장애물 스크립트도 config 기본값은 0.5이나, 실험 결과 **0.5는 reward만 깎고 트랙 이탈(실제 원인은 장애물 충돌)을 줄이지 못해** CLI로 **0.2로 하향한 것이 최종값**이다(상세는 Part II 3절(진단) 참조). 즉 "코너 패널티"는 이탈의 진짜 레버가 아니었다.
 - `steering_smooth_weight`는 0.01이 움직임을 과도하게 방해해 0.001로 대폭 하향했다 (`:58`).
@@ -360,27 +359,9 @@ if self.target_kl is not None and approx_kl > self.target_kl * 1.5:
 
 approx_kl은 분산이 낮은 추정량 `E[(r-1) - log r]`(혼합정밀, `:430`) 또는 `0.5·E[(log π - log π_old)²]`(FP32, `:538`)로 계산한다. 함께 clip fraction(`|r-1| > ε`인 샘플 비율)도 로깅하여 클리핑 작동 정도를 모니터링한다(`:540`).
 
-### 2.7 학습 파이프라인 하이퍼파라미터 요약
+### 2.7 학습 파이프라인 (요약)
 
-| 항목 | 값 | 출처 |
-| --- | --- | --- |
-| 병렬 환경 수 | 64 async envs | `scripts/train_ppo_2action2.py:22` |
-| RolloutBuffer 크기 | 32,768 (= 64 envs × 512 steps) | `:29` |
-| 미니배치 크기 | 2,048 | `:30` |
-| PPO epochs | 6 | `:31` |
-| 할인율 γ | 0.99 | `:32` |
-| GAE λ | 0.95 | `:33` |
-| 클리핑 ε (`clip_epsilon`) | 0.15 | `:34` |
-| 가치 계수 `vf_coef` | 0.5 | `:35` |
-| 엔트로피 계수 `ent_coef` | 0.01 | `:36` |
-| `max_grad_norm` | 0.5 | `:37` |
-| `target_kl` (per-minibatch, ×1.5 강제) | 0.03 | `:38` |
-| 초기 행동 std | 0.5 (학습 대상) | `:42`, `:44` |
-| 학습률 스케줄 | cosine 1e-4 → 1e-5 (warmup 후 코사인 감쇠) | `:28`, `:46` |
-| 혼합정밀(mixed precision) | True (CUDA) | `:58` |
-| 정책 종류 | 가우시안 연속행동정책 (learned std) | `src/ppo_agent_2.py:32`, `:96` |
-
-학습 루프는 매 rollout마다 (1) 64개 비동기 환경에서 32,768 step을 수집하고, (2) GAE로 return/advantage를 계산한 뒤(`compute_returns_and_advantages`), (3) 2,048 미니배치로 최대 6 epoch 동안 PPO 갱신을 수행하되 per-minibatch KL early-stop으로 안전하게 종료하고, (4) **cosine learning-rate 스케줄(초기 1e-4 → 하한 1e-5)** 을 갱신한다(`update_learning_rate`, `src/ppo_agent_2.py:303`; 학습 루프 `scripts/train_ppo_2action2.py:278`–`:374`). CUDA에서는 `learn_mixed_precision`이 `autocast`/`GradScaler` 기반 혼합정밀로 동작하여 메모리/속도를 개선한다(`src/ppo_agent_2.py:343`, `:375`, `:405`).
+학습 루프는 매 rollout마다 **rollout 수집(64 env, 32,768 step) → GAE advantage → 미니배치 PPO 갱신(clip + value + entropy, per-minibatch KL early-stop) → cosine LR 갱신**을 반복한다(아래 그림). 개별 하이퍼파라미터 값은 본문 2.3–2.6에 인라인으로 명시했고, **전체 설정값(PPO·에이전트·환경·보상·장애물)은 Part I 4절(부록) 표에 한곳에 정리**했다 — 중복을 피해 여기서는 표를 생략한다.
 
 ![그림. PPO 작동 개요 — (좌) **Clipped Surrogate Objective**(ε=0.15): 확률비 $r_t$가 신뢰영역 [1−ε, 1+ε]을 벗어나면 목적함수 기여를 잘라내 한 번의 과도한 갱신(collapse)을 막는다. (우) **학습 루프**: rollout 수집(64 env, 32,768 step) → GAE advantage → 미니배치 클립 갱신(policy + value + entropy) → per-minibatch KL early-stop → cosine LR → 반복.](report_assets/fig_ppo_overview.png)
 
