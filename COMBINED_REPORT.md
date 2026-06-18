@@ -382,7 +382,7 @@ approx_kl은 분산이 낮은 추정량 `E[(r-1) - log r]`(혼합정밀, `:430`)
 
 학습 루프는 매 rollout마다 (1) 64개 비동기 환경에서 32,768 step을 수집하고, (2) GAE로 return/advantage를 계산한 뒤(`compute_returns_and_advantages`), (3) 2,048 미니배치로 최대 6 epoch 동안 PPO 갱신을 수행하되 per-minibatch KL early-stop으로 안전하게 종료하고, (4) **cosine learning-rate 스케줄(초기 1e-4 → 하한 1e-5)** 을 갱신한다(`update_learning_rate`, `src/ppo_agent_2.py:303`; 학습 루프 `scripts/train_ppo_2action2.py:278`–`:374`). CUDA에서는 `learn_mixed_precision`이 `autocast`/`GradScaler` 기반 혼합정밀로 동작하여 메모리/속도를 개선한다(`src/ppo_agent_2.py:343`, `:375`, `:405`).
 
-![그림. PPO 작동 개요 — (좌) **Clipped Surrogate Objective**(ε=0.15): 확률비 $r_t$가 신뢰영역 [1−ε, 1+ε]을 벗어나면 목적함수 기여를 잘라내 한 번의 과도한 갱신(collapse)을 막는다. (우) **학습 루프**: rollout 수집(64 env, 32,768 step) → GAE advantage → 미니배치 클립 갱신(policy + value + entropy) → per-minibatch KL early-stop → cosine LR → 반복.](report_assets/fig_ppo_overview.png){width=92%}
+![그림. PPO 작동 개요 — (좌) **Clipped Surrogate Objective**(ε=0.15): 확률비 $r_t$가 신뢰영역 [1−ε, 1+ε]을 벗어나면 목적함수 기여를 잘라내 한 번의 과도한 갱신(collapse)을 막는다. (우) **학습 루프**: rollout 수집(64 env, 32,768 step) → GAE advantage → 미니배치 클립 갱신(policy + value + entropy) → per-minibatch KL early-stop → cosine LR → 반복.](report_assets/fig_ppo_overview.png)
 
 ```{=openxml}
 <w:p><w:r><w:br w:type="page"/></w:r></w:p>
@@ -746,7 +746,7 @@ per-minibatch KL early-stop이 epoch 3에서 간헐적으로 발화(설계대로
 
 (`videos_obstacles_after` 5개 에피소드 seed42–46 = 323 / 707 / 334 / 301 / 724, 평균 ~478로 체크포인트 ~475와 정합. `videos_obstacles_before`는 seed42–43 2개만 존재.)
 
-| ![Before (장애물 학습 전): seed42 step240 — 흰 장애물로 정면 돌진, 누적 −68](report_assets/frame_before_seed42_r-68.png){width=98%} | ![After (장애물 학습 후): seed42 step240 — 도로 위 정상 주행·회피, 누적 +323](report_assets/frame_after_seed42_r323.png){width=98%} |
+| ![Before (장애물 학습 전): seed42 step240 — 흰 장애물로 정면 돌진, 누적 −68](report_assets/frame_before_seed42_r-68.png) | ![After (장애물 학습 후): seed42 step240 — 도로 위 정상 주행·회피, 누적 +323](report_assets/frame_after_seed42_r323.png) |
 |:--:|:--:|
 | **Before (장애물 학습 전): seed42 step240 — 흰 장애물로 정면 돌진, 누적 −68** | **After (장애물 학습 후): seed42 step240 — 도로 위 정상 주행·회피, 누적 +323** |
 
@@ -787,7 +787,7 @@ obs_small의 시드별 분석:
 
 ### 4.2 Clean 평가 (shaping 제외, 50ep 샘플링, seed 42)
 
-![그림. 장애물 task clean 성능 진행 — 2-action 천장 ~415 vs 3-action 229 (회색 점선=무장애물 베이스 667)](report_assets/fig_clean_progression.png){width=85%}
+![그림. 장애물 task clean 성능 진행 — 2-action 천장 ~415 vs 3-action 229 (회색 점선=무장애물 베이스 667)](report_assets/fig_clean_progression.png)
 | 모델 | Mean | Median | Min / Max | 비고 |
 |---|---|---|---|---|
 | round1 (고정 0.4) | 331 | 322 | -99 / 810 | 고정 0.4 분포 |
@@ -804,7 +804,7 @@ obs_small의 시드별 분석:
 
 → 영상: `videos_obstacles_before/`(충돌), `videos_obstacles_after/`·`videos_obs_small/`(회피), `videos_diag/`(진단용).
 
-![그림. 장애물 회피(weaving) — seed43, 보상 707: 곡선 구간에서 장애물 사이로 우회 조향](report_assets/frame_after_seed43_r707.png){width=60%}
+![그림. 장애물 회피(weaving) — seed43, 보상 707: 곡선 구간에서 장애물 사이로 우회 조향](report_assets/frame_after_seed43_r707.png)
 
 ---
 
@@ -848,9 +848,9 @@ CUDA_VISIBLE_DEVICES=0 python -m scripts.train_ppo_2action_obstacles \
 
 ### 6.2 B (ent 0.01) — 발산
 
-![그림. Entropy(=std) 곡선 — 3-action(ent0.01)은 2.0→5.3 발산, 2-action 및 3-action(ent0.003)은 안정](report_assets/fig_entropy_divergence.png){width=85%}
+![그림. Entropy(=std) 곡선 — 3-action(ent0.01)은 2.0→5.3 발산, 2-action 및 3-action(ent0.003)은 안정](report_assets/fig_entropy_divergence.png)
 
-![그림. shaped 학습 곡선 — 2-action ~450 유지 vs 3-action 피크 후 정체/추락](report_assets/fig_reward_curve.png){width=85%}
+![그림. shaped 학습 곡선 — 2-action ~450 유지 vs 3-action 피크 후 정체/추락](report_assets/fig_reward_curve.png)
 2-action과 동일한 `ent_coef 0.01`로 학습하자 **entropy(=std)가 2.0→5.33으로 폭증**, reward가 피크 325(@1.1M) 후 156으로 붕괴. TB 곡선 진단(`scripts/dump_tb_scalars.py`): `ent_coef×entropy`(0.053)가 `policy_loss`(0.008)를 **6배 압도** → 옵티마이저가 보상 대신 std 키우기로 폭주. `obstacle_hits`는 4.8→1~2로 줄어(회피는 학습) 실패 원인은 충돌이 아니라 **std 발산**. → **B는 불공정**(2D에 맞춘 ent가 3D엔 과대).
 
 ### 6.3 B2 (ent 0.003) — 발산 차단, 그러나 낮은 천장
@@ -867,7 +867,7 @@ CUDA_VISIBLE_DEVICES=0 python -m scripts.train_ppo_2action_obstacles \
 
 → **발산을 고쳐 공정(오히려 3-action에 유리한 ent 튜닝)하게 비교해도 3-action은 2-action의 ~55%.** Mean·Median 모두 큰 폭 하회, **Min은 오히려 악화**(−171, 깊은 충돌 판 다수).
 
-![그림. 2 vs 3 action (동일 장애물 task, clean 50ep) — 3-action은 2-action의 ~55%, 충돌 바닥(Min)도 악화](report_assets/fig_2v3_grouped.png){width=70%}
+![그림. 2 vs 3 action (동일 장애물 task, clean 50ep) — 3-action은 2-action의 ~55%, 충돌 바닥(Min)도 악화](report_assets/fig_2v3_grouped.png)
 
 ### 6.4 왜 — 코드 근거 (멀티에이전트 반증 검증 완료)
 동일 task·하이퍼파라미터에서 3-action만 낮은 건 **native 독립 gas/brake action space** 때문이며, 코드에 대조·반증했다:
