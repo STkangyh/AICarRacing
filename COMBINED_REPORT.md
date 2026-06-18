@@ -382,6 +382,8 @@ approx_kl은 분산이 낮은 추정량 `E[(r-1) - log r]`(혼합정밀, `:430`)
 
 학습 루프는 매 rollout마다 (1) 64개 비동기 환경에서 32,768 step을 수집하고, (2) GAE로 return/advantage를 계산한 뒤(`compute_returns_and_advantages`), (3) 2,048 미니배치로 최대 6 epoch 동안 PPO 갱신을 수행하되 per-minibatch KL early-stop으로 안전하게 종료하고, (4) **cosine learning-rate 스케줄(초기 1e-4 → 하한 1e-5)** 을 갱신한다(`update_learning_rate`, `src/ppo_agent_2.py:303`; 학습 루프 `scripts/train_ppo_2action2.py:278`–`:374`). CUDA에서는 `learn_mixed_precision`이 `autocast`/`GradScaler` 기반 혼합정밀로 동작하여 메모리/속도를 개선한다(`src/ppo_agent_2.py:343`, `:375`, `:405`).
 
+![그림. PPO 작동 개요 — (좌) **Clipped Surrogate Objective**(ε=0.15): 확률비 $r_t$가 신뢰영역 [1−ε, 1+ε]을 벗어나면 목적함수 기여를 잘라내 한 번의 과도한 갱신(collapse)을 막는다. (우) **학습 루프**: rollout 수집(64 env, 32,768 step) → GAE advantage → 미니배치 클립 갱신(policy + value + entropy) → per-minibatch KL early-stop → cosine LR → 반복.](report_assets/fig_ppo_overview.png){width=92%}
+
 ```{=openxml}
 <w:p><w:r><w:br w:type="page"/></w:r></w:p>
 ```
