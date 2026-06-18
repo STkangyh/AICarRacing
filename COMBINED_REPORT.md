@@ -769,6 +769,7 @@ obs_small의 시드별 분석:
 ### 4.2 Clean 평가 (shaping 제외, 50ep 샘플링, seed 42)
 
 ![그림. 장애물 task clean 성능 진행 — 2-action 천장 ~415 vs 3-action 229 (회색 점선=무장애물 베이스 667)](report_assets/fig_clean_progression.png)
+
 | 모델 | Mean | Median | Min / Max | 비고 |
 |---|---|---|---|---|
 | round1 (고정 0.4) | 331 | 322 | -99 / 810 | 고정 0.4 분포 |
@@ -832,6 +833,7 @@ CUDA_VISIBLE_DEVICES=0 python -m scripts.train_ppo_2action_obstacles \
 ![그림. Entropy(=std) 곡선 — 3-action(ent0.01)은 2.0→5.3 발산, 2-action 및 3-action(ent0.003)은 안정](report_assets/fig_entropy_divergence.png)
 
 ![그림. shaped 학습 곡선 — 2-action ~450 유지 vs 3-action 피크 후 정체/추락](report_assets/fig_reward_curve.png)
+
 2-action과 동일한 `ent_coef 0.01`로 학습하자 **entropy(=std)가 2.0→5.33으로 폭증**, reward가 피크 325(@1.1M) 후 156으로 붕괴. TB 곡선 진단(`scripts/dump_tb_scalars.py`): `ent_coef×entropy`(0.053)가 `policy_loss`(0.008)를 **6배 압도** → 옵티마이저가 보상 대신 std 키우기로 폭주. `obstacle_hits`는 4.8→1~2로 줄어(회피는 학습) 실패 원인은 충돌이 아니라 **std 발산**. → **B는 불공정**(2D에 맞춘 ent가 3D엔 과대).
 
 ### 6.3 B2 (ent 0.003) — 발산 차단, 그러나 낮은 천장
