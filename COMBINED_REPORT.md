@@ -231,12 +231,6 @@ env = FrameStack(env, frame_stack)# Gray(96,96) -> (4,96,96)
 - `accel_turn_weight`(코너 가속 억제)는 장애물 스크립트에만 구현돼 있고 **베이스(train2) RewardShapingWrapper에는 항 자체가 없다**(인자만 받고 버림). 장애물 스크립트의 config 기본값은 0.5이며, 실험 결과 최종 0.2를 채택했다(그 진단·기각 논의는 Part II 3절).
 - `steering_smooth_weight`는 0.01이 움직임을 과도하게 방해해 0.001로 대폭 하향했다 (`:58`).
 
----
-
-### 요약
-
-학습 신호(shaped) = 베이스라인 보상(`-0.1`/프레임, `+1000/N`/타일, 이탈 `-100`+종료) + 장애물 패널티(충돌 스텝당 `-15`, 비종료, 스텝당 1회) + shaping(velocity `+speed*0.003` on-track, off-track `-1.0`, steering_smooth `-0.001*Δsteer`, accel_turn `-weight*gas*|steer|`). 평가/보고 점수는 shaping을 제거한 **clean reward**(베이스라인 + 장애물 패널티)로만 측정하여 모델, 환경 간 균일하게 비교하고자 했다.
-
 ```{=openxml}
 <w:p><w:r><w:br w:type="page"/></w:r></w:p>
 ```
