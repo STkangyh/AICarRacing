@@ -3,8 +3,8 @@
   <div style="font-size:2.7em; font-weight:700; letter-spacing:0.02em;">강화학습 최종 보고서</div>
   <div style="width:120px; height:3px; background:#1f77b4; margin:18px auto;"></div>
   <div style="font-size:1.25em; font-weight:700; color:#333; margin-top:0.6em; line-height:1.55;">2-Action PPO 에이전트<br>무장애물 학습 → 장애물 회피 확장 → 2 vs 3 Action 대조 실험</div>
-  <div style="font-size:1.0em; color:#555; margin-top:3.2em;">환경 : Gymnasium CarRacing-v3 / CarRacingObstacles-v0</div>
-  <div style="font-size:1.4em; font-weight:700; margin-top:4.5em;">7팀</div>
+  <div style="font-size:1.0em; color:#555; margin-top:3.2em;">환경 : Gymnasium CarRacing-v3</div>
+  <div style="font-size:1.4em; font-weight:700; margin-top:4.5em;">7팀 · 강영훈, 신용우</div>
   <div style="font-size:1.1em; color:#333; margin-top:0.4em;">2026-06-19</div>
 </div>
 ```
@@ -16,9 +16,9 @@
 <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="28"/></w:rPr><w:t>2-Action PPO 에이전트</w:t></w:r></w:p>
 <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="28"/></w:rPr><w:t>무장애물 학습 → 장애물 회피 확장 → 2 vs 3 Action 대조 실험</w:t></w:r></w:p>
 <w:p/><w:p/><w:p/><w:p/>
-<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="24"/></w:rPr><w:t>환경 : Gymnasium CarRacing-v3 / CarRacingObstacles-v0</w:t></w:r></w:p>
+<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="24"/></w:rPr><w:t>환경 : Gymnasium CarRacing-v3</w:t></w:r></w:p>
 <w:p/><w:p/><w:p/><w:p/><w:p/>
-<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="30"/></w:rPr><w:t>7팀</w:t></w:r></w:p>
+<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="30"/></w:rPr><w:t>7팀 · 강영훈, 신용우</w:t></w:r></w:p>
 <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="24"/></w:rPr><w:t>2026-06-19</w:t></w:r></w:p>
 <w:p><w:r><w:br w:type="page"/></w:r></w:p>
 ```
