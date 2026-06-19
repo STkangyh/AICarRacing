@@ -103,4 +103,4 @@ requirements.txt
 
 ## 크레딧
 
-원본 CarRacing PPO 베이스(3-action, `BestSavedAgents/`의 `evaluated641`/`Evaluated679`) 위에 팀 B가 2-action 복구·장애물 환경·3-action 대조 실험과 보고서를 추가했다. 환경: [Gymnasium CarRacing](https://gymnasium.farama.org/environments/box2d/car_racing/).
+원본 CarRacing PPO 베이스(3-action, `BestSavedAgents/`의 `evaluated641`/`Evaluated679`) 위에 7팀이 2-action 복구·장애물 환경·3-action 대조 실험과 보고서를 추가했다. 환경: [Gymnasium CarRacing](https://gymnasium.farama.org/environments/box2d/car_racing/).

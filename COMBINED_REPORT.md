@@ -1,15 +1,8 @@
----
-title: "AICarRacing 종합 기술 보고서"
-subtitle: "2-Action PPO: 무장애물 학습 · 장애물 회피 · 2 vs 3 Action 대조"
-author: "팀 B"
-date: "2026-06-19"
----
-
-# AICarRacing 종합 기술 보고서 {-}
+# 강화학습 최종 보고서 {-}
 
 **2-Action PPO 에이전트: 무장애물 학습 → 장애물 회피 확장 → 2 vs 3 Action 대조 실험**
 
-팀 B · 2026-06-19 · 환경: Gymnasium CarRacing-v3 / CarRacingObstacles-v0
+7팀 · 2026-06-19 · 환경: Gymnasium CarRacing-v3 / CarRacingObstacles-v0
 
 **핵심 결과 (요약):** 무장애물 트랙 2-action **clean 667**(median 745), 장애물 트랙 2-action **clean 415**(task 천장으로 확정), 동일 조건 3-action은 **clean 229 — 2-action의 ~55%**. → 2-action ActionWrapper의 signed-throttle(2D→3D 변환)이 *gas+brake 동시입력 퇴화영역 제거 + 탐색 축소*라는 유용한 inductive bias로 작동함을 확인.
 
