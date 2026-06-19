@@ -824,7 +824,7 @@ CUDA_VISIBLE_DEVICES=0 python -m scripts.train_ppo_2action_obstacles \
 
 ![그림. 2 vs 3 action (동일 장애물 task, clean 50ep) — 3-action은 2-action의 ~55%, 충돌 바닥(Min)도 악화](report_assets/fig_2v3_grouped.png)
 
-### 6.4 왜 — 코드 근거 (멀티에이전트 반증 검증 완료)
+### 6.4 왜 — 코드 근거
 동일 task·하이퍼파라미터에서 3-action만 낮은 건 독립 gas/brake action space 때문이며, 코드에 대조·반증했다:
 
 1. gas+brake 동시 입력이 실재하는 퇴화영역 (검증 holds=true). 3-action에서는 env의 step이 `car.gas(action[1])`·`car.brake(action[2])`를 독립 적용(`car_racing.py:545-546`), 물리엔진에서 같은 `w.omega`를 한 틱에 gas가 올리고 brake가 깎는 상쇄 낭비 구간(`car_dynamics.py:199-216`). 2-action ActionWrapper는 단일 throttle을 `gas=max(0,t)/brake=max(0,−t)`로 분해해 이 구간을 구조적으로 제거(`env_wrappers.py:140-141`).
