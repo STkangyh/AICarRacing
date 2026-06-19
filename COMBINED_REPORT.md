@@ -421,8 +421,6 @@ Input (4, 96, 96), 정규화: obs / 255.0
 
 → shaped 보상은 ~9.8M에서 피크 후 20M까지 689로 소폭 퇴보. **교훈: 20M은 과도, ~10–12M이 sweet spot.**
 
-![그림. 베이스 2-action 스케일업(shaped) — 9.83M에서 정점(837.99) 후 20M까지 689로 퇴보. 회색 띠=3-action 저장 모델의 임베디드 shaped(638~675, 참고), 초록 띠=권장 sweet spot ~10–12M.](report_assets/fig_base_scaleup.png)
-
 **Clean 평가** (셰이핑 제거 — 3.0 참조; 100 episodes, seed 42):
 
 | 모델 | mean ± std | median | Q1 | Q3 | min | max |
