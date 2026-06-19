@@ -23,8 +23,6 @@
 <w:p><w:r><w:br w:type="page"/></w:r></w:p>
 ```
 
-**핵심 결과 (요약):** 무장애물 트랙 2-action **clean 667**(median 745), 장애물 트랙 2-action **clean 415**(task 천장으로 확정), 동일 조건 3-action은 **clean 229 — 2-action의 ~55%**. → 2-action ActionWrapper의 signed-throttle(2D→3D 변환)이 *gas+brake 동시입력 퇴화영역 제거 + 탐색 축소*라는 유용한 inductive bias로 작동함을 확인.
-
 # Part 0 — 실행 환경 · 문제 정의(State/Reward) · 알고리즘
 
 ## 0. 실행 환경 및 설치 (재현성)
