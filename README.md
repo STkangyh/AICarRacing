@@ -1,7 +1,7 @@
 # AICarRacing — 2-Action PPO
 
 Gymnasium **CarRacing-v3** 환경에서 픽셀 입력만으로 주행하는 **2-action PPO** 에이전트.
-붕괴된 학습 라인 **복구** → **무작위 정적 장애물 회피** 확장 → **2-action vs native 3-action** 행동 파라미터화 대조 실험까지 다룬다.
+붕괴된 학습 라인 **복구** → **무작위 정적 장애물 회피** 확장 → **2-action vs 3-action** 행동 파라미터화 대조 실험까지 다룬다.
 
 > 전체 기술 보고서(환경·State·Reward 정의, PPO 이론, 코드 설명, 결과·고찰)는 **[`COMBINED_REPORT.pdf`](COMBINED_REPORT.pdf)** 참조.
 
@@ -17,7 +17,7 @@ Gymnasium **CarRacing-v3** 환경에서 픽셀 입력만으로 주행하는 **2-
 
 - **붕괴 복구**: per-minibatch KL early-stop + env-step 코사인 LR + 죽은 속도 보상 수정 → clean **667** 달성.
 - **장애물 회피 학습** (동일 시드 before→after): seed42 **−68 → +323**, seed43 **237 → 707**.
-- **2 vs 3 action**: 동일 task·하이퍼파라미터에서 native 3-action은 entropy(std) 발산 → 공정 재튜닝(ent 0.003) 후에도 clean 229로 2-action(415)의 **~55%**. ActionWrapper의 signed-throttle이 유용한 inductive bias임을 확인.
+- **2 vs 3 action**: 동일 task·하이퍼파라미터에서 3-action은 entropy(std) 발산 → 공정 재튜닝(ent 0.003) 후에도 clean 229로 2-action(415)의 **~55%**. ActionWrapper의 signed-throttle이 유용한 inductive bias임을 확인.
 
 ### 장애물 학습 전 → 후 (seed 42, 동일 트랙)
 
@@ -97,7 +97,7 @@ requirements.txt
 ## 환경 정의 (요약)
 
 - **State**: 96×96 `state_pixels` → grayscale → 4프레임 스택 → `(4, 96, 96)`, `/255` 정규화. 장애물은 관측에 **흰색(255)** 으로 그려 픽셀 에이전트가 인지 가능.
-- **Action**: 2-action `[steering, throttle]`(ActionWrapper가 throttle>0→gas, <0→brake로 매핑) vs native 3-action `[steering, gas, brake]`.
+- **Action**: 2-action `[steering, throttle]`(ActionWrapper가 throttle>0→gas, <0→brake로 매핑) vs 3-action `[steering, gas, brake]`.
 - **Reward**: 네이티브(프레임당 −0.1, 타일 통과 +1000/N, 이탈 −100) + 장애물 충돌 −15(penalty-only) + 학습용 shaping(velocity `speed×0.003`, off-track penalty, steering-smooth, corner accel). 평가는 shaping 제거한 **clean reward**.
 - 상세는 [`COMBINED_REPORT.pdf`](COMBINED_REPORT.pdf) §1.
 

@@ -2,14 +2,16 @@
 title: "AICarRacing 종합 기술 보고서"
 subtitle: "2-Action PPO: 무장애물 학습 · 장애물 회피 · 2 vs 3 Action 대조"
 author: "팀 B"
-date: "2026-06-15"
+date: "2026-06-19"
 ---
 
 # AICarRacing 종합 기술 보고서 {-}
 
 **2-Action PPO 에이전트: 무장애물 학습 → 장애물 회피 확장 → 2 vs 3 Action 대조 실험**
 
-팀 B · 2026-06-15 · 환경: Gymnasium CarRacing-v3 / CarRacingObstacles-v0
+팀 B · 2026-06-19 · 환경: Gymnasium CarRacing-v3 / CarRacingObstacles-v0
+
+**핵심 결과 (요약):** 무장애물 트랙 2-action **clean 667**(median 745), 장애물 트랙 2-action **clean 415**(task 천장으로 확정), 동일 조건 3-action은 **clean 229 — 2-action의 ~55%**. → 2-action ActionWrapper의 signed-throttle(2D→3D 변환)이 *gas+brake 동시입력 퇴화영역 제거 + 탐색 축소*라는 유용한 inductive bias로 작동함을 확인.
 
 > 본 문서는 채점 루브릭 순서를 따른다. **Part 0**(실행 환경·설치 / 문제·State·Reward 정의 / PPO 이론) → **Part I**(2-action 학습 + 3-action 비교, 무장애물) → **Part II**(장애물 입력 추가: 환경·round-1·크기·진단·엔트로피·**2 vs 3 action 대조**). 표는 원문 그대로, 그림·주행 프레임은 관련 절에 삽입했다.
 
@@ -69,7 +71,7 @@ pip install tensorboard==2.20.0 matplotlib==3.10.9  # 로깅 / 그림
 
 ### 0.3 실행 커맨드 (요약)
 
-모든 스크립트는 **모듈 방식**(`python -m scripts.NAME`)으로 저장소 루트에서 실행한다(패키지 상대 import 해석). 아래는 대표 예시이며, **학습·평가·녹화 전체 커맨드는 부록(Part II 8절)에 정리**했다.
+모든 스크립트는 **모듈 방식**(`python -m scripts.NAME`)으로 저장소 루트에서 실행한다(패키지 상대 import 해석). 아래는 대표 예시이며, **학습·평가·녹화 전체 커맨드는 부록(Part II 9절)에 정리**했다.
 
 ```bash
 # 학습 (원격 A100 / teamB_env 권장)
@@ -96,7 +98,7 @@ python -m scripts.evaluate_agent_2action \
 > | 2-action 장애물 | `models/obs_small/best_model.pth` | 365 / 325 | 위 평가 명령이 이 파일을 가리킴 |
 > | 3-action 베이스(참고) | `BestSavedAgents/evaluated641.pth` | ~675(임베디드) | git 추적본 |
 >
-> 보고서에 등장하는 **최고 2-action 장애물 모델(`obs_small_p02`, clean 415)와 3-action 장애물 모델(`obs_3action_lowent`, clean 229)은 원격 학습 서버에만 존재**하여 번들에서 제외했다(용량/접근). 이 수치들은 Part II 6절·장애물 보고서에 기록돼 있으며, 재현 커맨드(Part II 8절)로 재현 가능하다.
+> 보고서에 등장하는 **최고 2-action 장애물 모델(`obs_small_p02`, clean 415)와 3-action 장애물 모델(`obs_3action_lowent`, clean 229)은 원격 학습 서버에만 존재**하여 번들에서 제외했다(용량/접근). 이 수치들은 Part II 6절·장애물 보고서에 기록돼 있으며, 재현 커맨드(Part II 9절)로 재현 가능하다.
 
 ```{=openxml}
 <w:p><w:r><w:br w:type="page"/></w:r></w:p>
@@ -418,6 +420,8 @@ Input (4, 96, 96), 정규화: obs / 255.0
 | 20.0M | 689 | 피크 후 소폭 퇴보 |
 
 → shaped 보상은 ~9.8M에서 피크 후 20M까지 689로 소폭 퇴보. **교훈: 20M은 과도, ~10–12M이 sweet spot.**
+
+![그림. 베이스 2-action 스케일업(shaped) — 9.83M에서 정점(837.99) 후 20M까지 689로 퇴보. 회색 띠=3-action 저장 모델의 임베디드 shaped(638~675, 참고), 초록 띠=권장 sweet spot ~10–12M.](report_assets/fig_base_scaleup.png)
 
 **Clean 평가** (셰이핑 제거 — 3.0 참조; 100 episodes, seed 42):
 
@@ -861,7 +865,15 @@ CUDA_VISIBLE_DEVICES=0 python -m scripts.train_ppo_2action_obstacles \
 11. **action 파라미터화는 공짜가 아니다 — 2-action의 ActionWrapper가 유용한 inductive bias.** 3-action은 동일 조건에서 clean 229(2-action 415의 ~55%): 독립 gas/brake가 동시입력 퇴화영역·무방비 brake·~2.9배 탐색부피를 만들어 std 발산/저성능을 유발.
 12. **하이퍼파라미터는 차원에 따라 재튜닝하라.** 2D에서 안정적이던 `ent_coef 0.01`이 3D에선 entropy를 발산(2.0→5.33)시켰다 — `ent항/policy항` 비율로 균형을 확인하라.
 
-## 8. 부록 — 재현 커맨드
+## 8. 결론
+
+본 프로젝트는 픽셀 기반 `CarRacing` 위에서 PPO 에이전트를 (1) 무장애물 트랙에서 학습·스케일업하고, (2) 직접 정의한 장애물 환경(`CarRacingObstacles-v0`)으로 일반화한 뒤, (3) 2-action과 3-action 행동 파라미터화를 동일 조건에서 대조했다.
+
+- **최종 산출물.** 무장애물 베이스 `models/ppo_2action4/best_model.pth`(clean **667** / median 745), 장애물 회피 `obs_small_p02`(clean **415**, task 천장). 평가·재현은 9절 커맨드로 가능하다.
+- **핵심 발견.** 장애물 task의 clean 천장(~415)은 코너 패널티·스텝 증가·행동 노이즈 축소 **세 레버 모두로 넘지 못했고**, 남은 실패는 평가 샘플링 노이즈가 아니라 일부 장애물 배치를 못 푸는 **구조적 한계**였다. 동일·관대 조건의 3-action은 clean **229(2-action의 ~55%)**로, ActionWrapper의 signed-throttle이 *퇴화영역 제거 + 탐색 축소*라는 **유용한 inductive bias**임을 사후 정당화했다.
+- **다음 단계.** 추가 개선의 ROI는 하이퍼파라미터가 아니라 **표현/아키텍처**(명시적 장애물 채널, recurrent, 더 큰 CNN) 쪽에 있다고 판단한다.
+
+## 9. 부록 — 재현 커맨드
 
 > 학습=원격 GPU(conda `teamB_env`), 평가/녹화=로컬(conda `racing`). 스크립트는 저장소 루트에서 `python -m scripts.NAME`으로 실행.
 
