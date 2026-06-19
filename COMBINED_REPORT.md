@@ -253,9 +253,7 @@ PPO는 정책(policy)과 가치함수(value function)를 동시에 학습하는 
 
 순수 정책 경사(policy gradient, 예: REINFORCE/A2C)는
 
-```
-∇J(θ) = E[ ∇ log π_θ(a|s) · A(s,a) ]
-```
+$$\nabla J(\theta) = \mathbb{E}\big[\, \nabla \log \pi_\theta(a\mid s)\cdot A(s,a) \,\big]$$
 
 형태의 추정량을 따라 정책을 갱신한다. 그러나 수집한 데이터(rollout)를 여러 epoch 재사용하면 정책이 데이터를 만든 정책 `π_old`에서 너무 멀리 이동해 분포 이동(distribution shift) 이 커지고, 한 번의 큰 갱신이 정책을 붕괴(collapse)시킬 수 있다.
 
@@ -265,11 +263,9 @@ PPO는 정책(policy)과 가치함수(value function)를 동시에 학습하는 
 
 핵심 정책 목적함수는 다음과 같다.
 
-```
-r_t(θ) = π_θ(a_t|s_t) / π_old(a_t|s_t)
+$$r_t(\theta) = \frac{\pi_\theta(a_t\mid s_t)}{\pi_{\mathrm{old}}(a_t\mid s_t)}$$
 
-L^CLIP(θ) = E_t[ min( r_t · A_t,  clip(r_t, 1-ε, 1+ε) · A_t ) ]
-```
+$$L^{\mathrm{CLIP}}(\theta) = \mathbb{E}_t\big[\min\big(r_t\,A_t,\; \mathrm{clip}(r_t,\,1-\epsilon,\,1+\epsilon)\,A_t\big)\big]$$
 
 여기서 `A_t`는 Advantage 추정값, `ε`는 클리핑 폭(`clip_epsilon`)이다. 우리는 ε = 0.15 를 사용하였다(기본 0.2 대비 축소하여 신뢰영역을 좁혀 KL 폭발/붕괴를 억제, `config["clip_epsilon"] = 0.15`, `scripts/train_ppo_2action2.py:34`).
 
@@ -288,16 +284,13 @@ policy_loss = -torch.min(policy_loss_1, policy_loss_2).mean()   # = -L^CLIP
 
 Advantage는 GAE(Generalized Advantage Estimation) 로 추정하여 편향-분산을 절충한다. TD 오차
 
-```
-δ_t = r_t + γ · V(s_{t+1}) · (1 - done) - V(s_t)
-```
+$$\delta_t = r_t + \gamma\, V(s_{t+1})\,(1-\mathrm{done}) - V(s_t)$$
 
 를 정의하고, GAE는 이를 재귀적으로 누적한다.
 
-```
-A_t = δ_t + (γ·λ) · (1 - done) · A_{t+1}
-R_t = A_t + V(s_t)          (가치함수 타깃, 즉 return)
-```
+$$A_t = \delta_t + (\gamma\lambda)\,(1-\mathrm{done})\, A_{t+1}, \qquad R_t = A_t + V(s_t)$$
+
+여기서 $R_t$는 가치함수 타깃(즉 return)이다.
 
 우리는 γ = 0.99, λ = 0.95 를 사용한다(`config["gamma"]=0.99`, `config["gae_lambda"]=0.95`, `scripts/train_ppo_2action2.py:32`–`:33`). 구현은 rollout을 뒤에서 앞으로 순회하며 위 재귀식을 그대로 적용한다(`RolloutBuffer.compute_returns_and_advantages`, `src/rollout_buffer.py:142`, `:146`, `:151`). 또한 미니배치 추출 직전에 Advantage를 버퍼 전체에 대해 전역 정규화(평균 0, 분산 1) 하여 스케일을 안정화한다(`src/rollout_buffer.py:189`–`:191`).
 
@@ -305,9 +298,9 @@ R_t = A_t + V(s_t)          (가치함수 타깃, 즉 return)
 
 총손실은 세 항의 가중합이다.
 
-```
-L_total = L_policy + vf_coef · L_value - ent_coef · H[π]
-```
+$$L_{\mathrm{total}} = L_{\mathrm{policy}} + c_{v}\, L_{\mathrm{value}} - c_{e}\, H[\pi]$$
+
+($c_v$ = `vf_coef`, $c_e$ = `ent_coef`.)
 
 - 가치손실 `L_value`: Critic 추정값과 GAE return의 MSE(평균제곱오차).
   `value_loss = F.mse_loss(values, returns_batch)` (`src/ppo_agent_2.py:510`).
