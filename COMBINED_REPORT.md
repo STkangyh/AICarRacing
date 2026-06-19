@@ -1,16 +1,29 @@
-# 강화학습 최종 보고서 {-}
-
-**2-Action PPO 에이전트: 무장애물 학습 → 장애물 회피 확장 → 2 vs 3 Action 대조 실험**
-
-7팀 · 2026-06-19 · 환경: Gymnasium CarRacing-v3 / CarRacingObstacles-v0
-
-**핵심 결과 (요약):** 무장애물 트랙 2-action **clean 667**(median 745), 장애물 트랙 2-action **clean 415**(task 천장으로 확정), 동일 조건 3-action은 **clean 229 — 2-action의 ~55%**. → 2-action ActionWrapper의 signed-throttle(2D→3D 변환)이 *gas+brake 동시입력 퇴화영역 제거 + 탐색 축소*라는 유용한 inductive bias로 작동함을 확인.
-
-> 본 문서는 채점 루브릭 순서를 따른다. **Part 0**(실행 환경·설치 / 문제·State·Reward 정의 / PPO 이론) → **Part I**(2-action 학습 + 3-action 비교, 무장애물) → **Part II**(장애물 입력 추가: 환경·round-1·크기·진단·엔트로피·**2 vs 3 action 대조**). 표는 원문 그대로, 그림·주행 프레임은 관련 절에 삽입했다.
+```{=html}
+<div style="text-align:center; padding-top:24%; page-break-after:always;">
+  <div style="font-size:2.7em; font-weight:700; letter-spacing:0.02em;">강화학습 최종 보고서</div>
+  <div style="width:120px; height:3px; background:#1f77b4; margin:18px auto;"></div>
+  <div style="font-size:1.25em; font-weight:700; color:#333; margin-top:0.6em; line-height:1.55;">2-Action PPO 에이전트<br>무장애물 학습 → 장애물 회피 확장 → 2 vs 3 Action 대조 실험</div>
+  <div style="font-size:1.0em; color:#555; margin-top:3.2em;">환경 : Gymnasium CarRacing-v3 / CarRacingObstacles-v0</div>
+  <div style="font-size:1.4em; font-weight:700; margin-top:4.5em;">7팀</div>
+  <div style="font-size:1.1em; color:#333; margin-top:0.4em;">2026-06-19</div>
+</div>
+```
 
 ```{=openxml}
+<w:p/><w:p/><w:p/><w:p/><w:p/>
+<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="64"/></w:rPr><w:t>강화학습 최종 보고서</w:t></w:r></w:p>
+<w:p/>
+<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="28"/></w:rPr><w:t>2-Action PPO 에이전트</w:t></w:r></w:p>
+<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="28"/></w:rPr><w:t>무장애물 학습 → 장애물 회피 확장 → 2 vs 3 Action 대조 실험</w:t></w:r></w:p>
+<w:p/><w:p/><w:p/><w:p/>
+<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="24"/></w:rPr><w:t>환경 : Gymnasium CarRacing-v3 / CarRacingObstacles-v0</w:t></w:r></w:p>
+<w:p/><w:p/><w:p/><w:p/><w:p/>
+<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="30"/></w:rPr><w:t>7팀</w:t></w:r></w:p>
+<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="24"/></w:rPr><w:t>2026-06-19</w:t></w:r></w:p>
 <w:p><w:r><w:br w:type="page"/></w:r></w:p>
 ```
+
+**핵심 결과 (요약):** 무장애물 트랙 2-action **clean 667**(median 745), 장애물 트랙 2-action **clean 415**(task 천장으로 확정), 동일 조건 3-action은 **clean 229 — 2-action의 ~55%**. → 2-action ActionWrapper의 signed-throttle(2D→3D 변환)이 *gas+brake 동시입력 퇴화영역 제거 + 탐색 축소*라는 유용한 inductive bias로 작동함을 확인.
 
 # Part 0 — 실행 환경 · 문제 정의(State/Reward) · 알고리즘
 
