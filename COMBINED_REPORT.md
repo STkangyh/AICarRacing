@@ -733,7 +733,7 @@ obs_small의 시드별 분석:
 | run | 패널티 / 크기 | 스텝 | best(shaped) @ step | 비고 |
 |---|---|---|---|---|
 | round1 (`ppo_2action_obstacles`) | 0 / 고정 0.4 | 10M | 474.8 @ 4.9M | 52→360→431 상승 후 정체 |
-| obs_small | 0.5 / 랜덤 0.25–0.6 | 6M | 447.4 @ 1.64M | 정점 매우 이름 |
+| obs_small | 0.5 / 랜덤 0.25–0.6 | 6M | 447.4 @ 1.64M | 정점 시점이 매우 이름 |
 | obs_small_p02 | 0.2 / 랜덤 0.25–0.6 | 6M | 465.4 @ 3.28M | 정점 후 6M엔 453로 퇴보 |
 
 → 세 run 모두 전반부(1.6M / 3.3M / 4.9M)에 정점 후 정체/퇴보. (베이스 20M도 9.8M 정점) → 순수 스텝 증가는 ROI가 낮고, 다음 실험은 4~5M이면 충분.
@@ -774,16 +774,16 @@ CUDA_VISIBLE_DEVICES=0 python -m scripts.train_ppo_2action_obstacles \
   --save-dir ./models/obs_p02_lowent --log-dir ./logs/obs_p02_lowent
 ```
 
-### 5.1 결과 — 노이즈(entropy)는 줄었으나 성능은 안 따라옴
-학습 4M 완료(clean exit). 학습 지표: `losses/entropy` 1.3 → 0.91로 하락 → 노이즈 축소 자체는 의도대로 작동. 그러나 50ep clean(seed 42, 동일 소형 분포):
+### 5.1 결과 — 노이즈(entropy)는 줄었으나 성능은 개선되지 않음
+학습 4M 완료(clean exit). 학습 지표: `losses/entropy`는 1.3 → 0.91로 하락하여 노이즈 축소 자체는 의도대로 작동했다. 그러나 50ep clean(seed 42, 동일 소형 분포):
 
 | 모델 | ent_coef | Mean | Median | Q1 / Q3 | Min(충돌 바닥) | Max |
 |---|---|---|---|---|---|---|
 | obs_small_p02 | 0.01 | 415 | 422 | 285 / 553 | -65 | 842 |
 | obs_p02_lowent | 0.005 | 418 | 396 | 252 / 591 | -112 | 811 |
 
-- Mean 415 → 418: 사실상 무변화(편차 ±231 안). Median 422 → 396으로 오히려 ↓.
-- Min(충돌 바닥) -65 → -112로 악화. 최악 판(ep32 -112)은 entropy를 낮췄는데도 살아남음.
+- Mean 415 → 418: 사실상 무변화(편차 ±231 안). Median은 422 → 396으로 오히려 하락했다.
+- Min(충돌 바닥)은 -65 → -112로 악화되었다. 최악 사례(ep32 -112)는 entropy를 낮췄음에도 개선되지 않았다.
 
 ### 5.2 해석 — 진단의 수정: 남은 충돌은 "구조적"이지 단순 노이즈가 아니다
 3절에서 "충돌은 대부분 샘플링 노이즈"로 보였으나(seed53 결정론 486 vs 샘플링 -36), 노이즈를 실제로 줄여 본 결과(entropy 1.3→0.91) 충돌은 줄지 않았다. Min은 오히려 악화되었다. 즉 샘플링 노이즈는 충돌의 *충분조건* 중 하나였을 뿐, 제거해도 사라지지 않는 구조적 실패 사례가 따로 남아 있다 — 정책이 특정 장애물 배치를 아직 해결하지 못하는 것이다. (`ent_coef`를 더 낮추면 탐색까지 줄어 학습 자체가 나빠질 수 있어 더 내리는 것은 권장하지 않는다.)
@@ -806,7 +806,7 @@ CUDA_VISIBLE_DEVICES=0 python -m scripts.train_ppo_2action_obstacles \
 
 ![그림. shaped 학습 곡선 — 2-action ~450 유지 vs 3-action 피크 후 정체/추락](report_assets/fig_reward_curve.png)
 
-2-action과 동일한 `ent_coef 0.01`로 학습하자 entropy(=std)가 2.0→5.33으로 폭증, reward가 피크 325(@1.1M) 후 156으로 붕괴. TB 곡선 진단(`scripts/dump_tb_scalars.py`): `ent_coef×entropy`(0.053)가 `policy_loss`(0.008)를 6배 압도 → 옵티마이저가 보상 향상 대신 std 증대 방향으로 발산. `obstacle_hits`는 4.8→1~2로 줄어(회피는 학습) 실패 원인은 충돌이 아니라 std 발산. → B는 불공정(2D에 맞춘 ent가 3D엔 과대).
+2-action과 동일한 `ent_coef 0.01`로 학습하자 entropy(=std)가 2.0→5.33으로 폭증했고, reward는 피크 325(@1.1M) 이후 156으로 붕괴했다. TB 곡선 진단(`scripts/dump_tb_scalars.py`): `ent_coef×entropy`(0.053)가 `policy_loss`(0.008)를 6배 압도 → 옵티마이저가 보상 향상 대신 std 증대 방향으로 발산. `obstacle_hits`는 4.8→1~2로 줄어(회피는 학습) 실패 원인은 충돌이 아니라 std 발산. → B는 불공정(2D에 맞춘 ent가 3D엔 과대).
 
 ### 6.3 B2 (ent 0.003) — 발산 차단, 그러나 낮은 천장
 `ent_coef`를 0.003으로 낮추자(ent항/policy항 ≈ 1:1) entropy가 ~2–3.3에서 안정, 발산 소멸. 피크도 1.1M→3.28M으로 이동(2-action p02와 동일 시점) — 저엔트로피가 조기 발산 대신 후반까지 개선을 허용. clean 50ep(동일 분포·seed 42):
@@ -820,7 +820,7 @@ CUDA_VISIBLE_DEVICES=0 python -m scripts.train_ppo_2action_obstacles \
 | Min (충돌 바닥) | −65 | −171 | 악화 |
 | Max | 842 | 730 | — |
 
-→ 발산을 고쳐 공정(오히려 3-action에 유리한 ent 튜닝)하게 비교해도 3-action은 2-action의 ~55%. Mean·Median 모두 큰 폭 하회, Min은 오히려 악화(−171, 깊은 충돌 판 다수).
+→ 발산을 고쳐 공정(오히려 3-action에 유리한 ent 튜닝)하게 비교해도 3-action은 2-action의 ~55%. Mean·Median 모두 큰 폭 하회, Min은 오히려 악화(−171, 깊은 충돌 사례 다수).
 
 ![그림. 2 vs 3 action (동일 장애물 task, clean 50ep) — 3-action은 2-action의 ~55%, 충돌 바닥(Min)도 악화](report_assets/fig_2v3_grouped.png)
 
