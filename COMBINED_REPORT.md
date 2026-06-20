@@ -222,13 +222,13 @@ env = FrameStack(env, frame_stack)# Gray(96,96) -> (4,96,96)
 | steering_smooth (조향 급변) | `reward -= |steer - last_steer| * steering_smooth_weight` | `steering_smooth_weight = 0.001` | 매 스텝 | wrapper `:202-205`, config `:58` |
 | accel_turn (코너 가속) | `reward -= weight * gas * |steer|` (`gas = max(0, action[1])`) | 장애물: 최종 0.2 (config 기본 0.5; CLI로 하향) / 베이스: 항 자체가 미구현 | `weight > 0`이고 조향 중 가속할 때만(직진 가속은 비용 0) | wrapper `:213-217`, config `:59`, CLI `:268-269` |
 
-속도(speed) 계산 주의점: CarRacing-v3는 `info`에 `speed`를 제공하지 않아(항상 0) 속도 보상이 죽는다. 따라서 차량 물리에서 직접 계산한다 — `vx, vy = car.hull.linearVelocity; speed = sqrt(vx² + vy²)` (`scripts/train_ppo_2action_obstacles.py:166-173`).
+속도(speed) 계산 주의점: CarRacing-v3는 `info`에 `speed`를 제공하지 않아(항상 0) 속도 보상이 작동하지 않는다. 따라서 차량 물리에서 직접 계산한다 — `vx, vy = car.hull.linearVelocity; speed = sqrt(vx² + vy²)` (`scripts/train_ppo_2action_obstacles.py:166-173`).
 
 off-track 판정: 관측 픽셀의 차량 영역(`obs[84:94, 42:54]`)에서 초록 채널 평균 > 150 이고 빨강 채널 평균 < 100 이면 잔디 위로 간주한다 (`scripts/train_ppo_2action_obstacles.py:181-185`).
 
 weight 튜닝:
 - `velocity_weight`는 0.03이면 step당 ~0.9로 베이스라인 보상을 압도해 0.003으로 낮춤 (실속도 ≈ 20~60) (`:55`).
-- `accel_turn_weight`(코너 가속 억제)는 장애물 스크립트에만 구현돼 있고 베이스(train2) RewardShapingWrapper에는 항 자체가 없다(인자만 받고 버림). 장애물 스크립트의 config 기본값은 0.5이며, 실험 결과 최종 0.2를 채택했다(그 진단·기각 논의는 Part II 3절).
+- `accel_turn_weight`(코너 가속 억제)는 장애물 스크립트에만 구현돼 있고 베이스(train2) RewardShapingWrapper에는 항 자체가 없다(인자만 받고 사용하지 않는다). 장애물 스크립트의 config 기본값은 0.5이며, 실험 결과 최종 0.2를 채택했다(그 진단·기각 논의는 Part II 3절).
 - `steering_smooth_weight`는 0.01이 움직임을 과도하게 방해해 0.001로 대폭 하향했다 (`:58`).
 
 ```{=openxml}
@@ -668,7 +668,7 @@ def step(self, action):
 
 ### 1.5 환경 구축 중 해결한 버그 (요약)
 
-Linux box2d-py에서 세 버그를 수정했다. (1) SEGFAULT — 차가 장애물에 닿은 채 에피소드가 끝나 `reset()`의 `_destroy()`가 body를 파괴하면 Box2D가 반쯤 파괴된 body에 EndContact 콜백을 재진입시켜 죽었다 → 파괴 전에 contact listener를 detach. (2) loop-spawn — 루프 트랙의 끝 타일이 시작선 바로 뒤라 차 위에 장애물이 스폰됨 → 후보 타일에서 양 끝을 모두 제외(`range(start_clear_tiles, n_tiles-start_clear_tiles)`). (3) 로깅 무력화 — 벡터 env의 `infos`를 `infos.get(i)`(정수키)로 읽어 셰이핑 지표가 전부 미기록 → `infos[key][i]`(dict-of-arrays)로 수정. (상세 코드는 `src/car_racing_obstacles.py`·학습 스크립트 참조.)
+Linux box2d-py에서 세 버그를 수정했다. (1) SEGFAULT — 차가 장애물에 닿은 채 에피소드가 끝나 `reset()`의 `_destroy()`가 body를 파괴하면 Box2D가 반쯤 파괴된 body에 EndContact 콜백을 재진입시켜 비정상 종료(segfault)했다 → 파괴 전에 contact listener를 detach. (2) loop-spawn — 루프 트랙의 끝 타일이 시작선 바로 뒤라 차 위에 장애물이 스폰됨 → 후보 타일에서 양 끝을 모두 제외(`range(start_clear_tiles, n_tiles-start_clear_tiles)`). (3) 로깅 무력화 — 벡터 env의 `infos`를 `infos.get(i)`(정수키)로 읽어 셰이핑 지표가 전부 미기록 → `infos[key][i]`(dict-of-arrays)로 수정. (상세 코드는 `src/car_racing_obstacles.py`·학습 스크립트 참조.)
 
 ## 2. 장애물 회피 학습 (round 1)
 
@@ -719,7 +719,7 @@ obs_small의 시드별 분석:
 | 56 | 757 | 13.1 | 0 |
 
 - 저점 에피소드 = 도로 위에서 정상 주행 중(off 0%)인데 장애물에 다발 충돌. 고득점 에피소드 = 충돌 0이고 off-track은 오히려 높다(회피하느라 가장자리로 weaving) → off-track은 실패가 아니라 회피 성공의 부산물이다.
-- 결정적: 최악 seed 53을 결정론(mean action)으로 돌리니 -36 → 486, 충돌 0. → 충돌의 상당수는 정책 무능이 아니라 평가 시 가우시안 행동 노이즈가 가끔 장애물로 틀어버린 것이다.
+- 결정적: 최악 seed 53을 결정론(mean action)으로 돌리니 -36 → 486, 충돌 0. → 충돌의 상당수는 정책의 한계가 아니라 평가 시 가우시안 행동 노이즈가 간헐적으로 차량을 장애물 쪽으로 향하게 한 것이다.
 
 > 부수적으로 코너 가속 억제 패널티(`accel_turn`)도 시도했으나, off-track·충돌과 무관하게 reward만 깎아(weight 0.5 → clean 365) 0.2로 낮춰 최종 채택(clean 415)했다 — 트랙 이탈을 줄이는 실질적 요인이 아니었다.
 
@@ -806,7 +806,7 @@ CUDA_VISIBLE_DEVICES=0 python -m scripts.train_ppo_2action_obstacles \
 
 ![그림. shaped 학습 곡선 — 2-action ~450 유지 vs 3-action 피크 후 정체/추락](report_assets/fig_reward_curve.png)
 
-2-action과 동일한 `ent_coef 0.01`로 학습하자 entropy(=std)가 2.0→5.33으로 폭증, reward가 피크 325(@1.1M) 후 156으로 붕괴. TB 곡선 진단(`scripts/dump_tb_scalars.py`): `ent_coef×entropy`(0.053)가 `policy_loss`(0.008)를 6배 압도 → 옵티마이저가 보상 대신 std 키우기로 폭주. `obstacle_hits`는 4.8→1~2로 줄어(회피는 학습) 실패 원인은 충돌이 아니라 std 발산. → B는 불공정(2D에 맞춘 ent가 3D엔 과대).
+2-action과 동일한 `ent_coef 0.01`로 학습하자 entropy(=std)가 2.0→5.33으로 폭증, reward가 피크 325(@1.1M) 후 156으로 붕괴. TB 곡선 진단(`scripts/dump_tb_scalars.py`): `ent_coef×entropy`(0.053)가 `policy_loss`(0.008)를 6배 압도 → 옵티마이저가 보상 향상 대신 std 증대 방향으로 발산. `obstacle_hits`는 4.8→1~2로 줄어(회피는 학습) 실패 원인은 충돌이 아니라 std 발산. → B는 불공정(2D에 맞춘 ent가 3D엔 과대).
 
 ### 6.3 B2 (ent 0.003) — 발산 차단, 그러나 낮은 천장
 `ent_coef`를 0.003으로 낮추자(ent항/policy항 ≈ 1:1) entropy가 ~2–3.3에서 안정, 발산 소멸. 피크도 1.1M→3.28M으로 이동(2-action p02와 동일 시점) — 저엔트로피가 조기 발산 대신 후반까지 개선을 허용. clean 50ep(동일 분포·seed 42):
@@ -847,9 +847,9 @@ CUDA_VISIBLE_DEVICES=0 python -m scripts.train_ppo_2action_obstacles \
 4. 픽셀 입력 에이전트는 장애물을 관측에 직접 "그려" 넣어야 한다 — 물리 세계에만 두면 보이지 않는다.
 5. Linux box2d-py는 body 파괴 중 contact 콜백에서 segfault — listener를 먼저 detach하라(macOS가 가려서 로컬에선 안 잡힘).
 6. 벡터 env 로깅은 `infos[key][i]`(dict-of-arrays)로 읽어야 한다 — `infos.get(i)`(정수키)는 무음 실패.
-7. 셰이핑을 추가하기 전에 실패 모드를 측정하라. 계측 평가가 진짜 실패 원인이 트랙 이탈이 아니라 장애물 충돌임을 드러냈다 — 인상에 기반한 보상 항(코너 패널티)은 실질적 개선 요인이 아니었다.
+7. 셰이핑을 추가하기 전에 실패 모드를 측정하라. 계측 평가가 실제 실패 원인이 트랙 이탈이 아니라 장애물 충돌임을 드러냈다 — 인상에 기반한 보상 항(코너 패널티)은 실질적 개선 요인이 아니었다.
 8. 샘플링 vs 결정론 평가는 std가 클 때 크게 다르다 — 샘플링 노이즈가 장애물 충돌을 유발(seed53 결정론 486 vs 샘플링 −36).
-9. "노이즈가 원인"은 가설로 끝내지 말고 직접 검증하라. `ent_coef`로 노이즈를 줄여봤더니(entropy 1.3→0.91) 충돌이 안 줄었다 — 일부는 노이즈로 제거 안 되는 구조적 실패.
+9. "노이즈가 원인"은 가설로 끝내지 말고 직접 검증하라. `ent_coef`로 노이즈를 줄여 본 결과(entropy 1.3→0.91) 충돌은 줄지 않았다 — 일부는 노이즈로 제거되지 않는 구조적 실패다.
 10. 이 태스크는 전반부에 정점 후 정체 — 코너 패널티·스텝 증가·노이즈 축소 세 가지 개선 요인 모두 clean ~415 천장을 못 넘음. 다음 개선은 하이퍼파라미터가 아니라 표현/아키텍처(명시적 장애물 채널, recurrent, 더 큰 CNN) 쪽이어야 한다.
 11. action 파라미터화는 공짜가 아니다 — 2-action의 ActionWrapper가 유용한 inductive bias. 3-action은 동일 조건에서 clean 229(2-action 415의 ~55%): 독립 gas/brake가 동시입력 퇴화영역·무방비 brake·~2.9배 탐색부피를 만들어 std 발산/저성능을 유발.
 12. 하이퍼파라미터는 차원에 따라 재튜닝하라. 2D에서 안정적이던 `ent_coef 0.01`이 3D에선 entropy를 발산(2.0→5.33)시켰다 — `ent항/policy항` 비율로 균형을 확인하라.
@@ -888,7 +888,7 @@ python -m scripts.evaluate_agent_2action \
 # 장애물: 동봉 obs_small=clean 365 / 헤드라인 415(obs_small_p02)는 원격 전용 — 0.4 참조
 python -m scripts.evaluate_agent_2action_obstacles \
   --model ./models/obs_small/best_model.pth \
-  --obstacle-size-min 0.25 --obstacle-size-max 0.6 --episodes 50 --seed 42         # 학습과 동일 크기 분포로!
+  --obstacle-size-min 0.25 --obstacle-size-max 0.6 --episodes 50 --seed 42         # 학습과 동일 크기 분포로 평가
 python -m scripts.evaluate_agent_3action_obstacles \
   --model ./models/obs_3action/best_model.pth \
   --obstacle-size-min 0.25 --obstacle-size-max 0.6 --episodes 50 --seed 42         # 3-action
