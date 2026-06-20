@@ -34,7 +34,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 3) 프로젝트 코드 + 평가용 체크포인트 (대용량은 .dockerignore로 제외됨)
 COPY src/ ./src/
 COPY scripts/ ./scripts/
-COPY README.md requirements.txt ./
+COPY README.md ./
 COPY BestSavedAgents/evaluated641.pth ./BestSavedAgents/
 COPY models/ppo_2action4/best_model.pth ./models/ppo_2action4/
 COPY models/obs_small/best_model.pth ./models/obs_small/

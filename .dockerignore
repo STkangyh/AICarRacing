@@ -17,6 +17,16 @@ evaluation_*.png
 **/__pycache__/
 **/*.pyc
 **/.DS_Store
+**/.ipynb_checkpoints/
+
+# 보고서·그림 생성 전용 스크립트 (RL 프로젝트 코드 아님 — 이미지 실행에 불필요)
+scripts/build_combined_report.py
+scripts/dedup_report.py
+scripts/renumber_report.py
+scripts/restructure2_report.py
+scripts/dump_tb_scalars.py
+scripts/make_ppo_fig.py
+scripts/make_report_figs.py
 
 # 대용량/불필요 체크포인트 (COPY하는 3개만 남김)
 models/ppo_2action/
