@@ -176,8 +176,10 @@ development_log.md
 **/.DS_Store
 # 영상 폴더 (mp4 대용량; 대표 GIF는 report_assets/에 포함)
 /videos_*/
-# 제출 번들 (체크포인트 사본 포함, 24M) 및 압축본
+# 제출 번들 (체크포인트 사본 포함) 및 압축본
 /AICarRacing_TeamB_submission/
+/AICarRacing_Team7_submission/
+Team7_Final_Report.pdf
 *.zip
 # 루트 scratch 평가 플롯 (report_assets/와 별개)
 /evaluation_*.png
