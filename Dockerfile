@@ -1,6 +1,6 @@
-# AICarRacing (팀 B) — 재현용 이미지
-# 빌드: docker buildx build --platform linux/amd64 -t aicarracing-teamb:latest --load .
-# 평가: docker run --rm aicarracing-teamb:latest \
+# AICarRacing (7팀) — 재현용 이미지
+# 빌드: docker buildx build --platform linux/amd64 -t aicarracing-team7:latest --load .
+# 평가: docker run --rm aicarracing-team7:latest \
 #         python -m scripts.evaluate_agent_2action --model ./models/ppo_2action4/best_model.pth --episodes 100 --seed 42
 FROM python:3.11-slim-bookworm
 

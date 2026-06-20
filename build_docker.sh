@@ -4,9 +4,9 @@
 #       PLATFORM=linux/arm64 bash build_docker.sh   (네이티브 빠른 빌드, Apple Silicon 전용)
 set -euo pipefail
 
-IMG="aicarracing-teamb:latest"
+IMG="aicarracing-team7:latest"
 PLATFORM="${PLATFORM:-linux/amd64}"
-OUT="aicarracing_teamb_image.tar.gz"
+OUT="aicarracing_team7_image.tar.gz"
 PARTSIZE="${PARTSIZE:-90m}"
 
 echo "==[1/4] build ($PLATFORM) =="
