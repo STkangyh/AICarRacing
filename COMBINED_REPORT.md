@@ -721,7 +721,7 @@ obs_small의 시드별 분석:
 - 저점 에피소드 = 도로 위에서 정상 주행 중(off 0%)인데 장애물에 다발 충돌. 고득점 에피소드 = 충돌 0이고 off-track은 오히려 높다(회피하느라 가장자리로 weaving) → off-track은 실패가 아니라 회피 성공의 부산물이다.
 - 결정적: 최악 seed 53을 결정론(mean action)으로 돌리니 -36 → 486, 충돌 0. → 충돌의 상당수는 정책 무능이 아니라 평가 시 가우시안 행동 노이즈가 가끔 장애물로 틀어버린 것이다.
 
-> 부수적으로 코너 가속 억제 패널티(`accel_turn`)도 시도했으나, off-track·충돌과 무관하게 reward만 깎아(weight 0.5 → clean 365) 0.2로 낮춰 최종 채택(clean 415)했다 — 트랙 이탈의 진짜 레버가 아니었다.
+> 부수적으로 코너 가속 억제 패널티(`accel_turn`)도 시도했으나, off-track·충돌과 무관하게 reward만 깎아(weight 0.5 → clean 365) 0.2로 낮춰 최종 채택(clean 415)했다 — 트랙 이탈을 줄이는 실질적 요인이 아니었다.
 
 이 진단(실패 = 충돌, 일부는 평가 샘플링 노이즈)이 다음 두 실험의 출발점이다 — 5절(행동 노이즈 축소), 6절(3-action 대조).
 
@@ -762,9 +762,9 @@ obs_small의 시드별 분석:
 
 ---
 
-## 5. 마지막 실험 — 행동 노이즈 축소(`ent_coef`)는 비(非)레버였다
+## 5. 마지막 실험 — 행동 노이즈 축소(`ent_coef`)는 성능 개선 요인이 아니었다
 
-진단(3절)에 따르면 이 모델의 천장은 "학습 부족"이 아니라 장애물 충돌이고, 그 충돌의 상당수가 평가 시 샘플링 노이즈로 보였다(결정론에서 충돌이 거의 사라짐). 그렇다면 마지막 레버는 코너 패널티가 아니라 행동 노이즈 축소여야 한다 — `ent_coef`를 낮춰 정책을 더 결정론적으로 만들면 샘플링 충돌이 줄어 실성능이 오를 것이라는 가설.
+진단(3절)에 따르면 이 모델의 천장은 "학습 부족"이 아니라 장애물 충돌이고, 그 충돌의 상당수가 평가 시 샘플링 노이즈로 보였다(결정론에서 충돌이 거의 사라짐). 그렇다면 마지막으로 시도할 개선 요인은 코너 패널티가 아니라 행동 노이즈 축소여야 한다 — `ent_coef`를 낮춰 정책을 더 결정론적으로 만들면 샘플링 충돌이 줄어 실성능이 오를 것이라는 가설.
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python -m scripts.train_ppo_2action_obstacles \
@@ -774,8 +774,8 @@ CUDA_VISIBLE_DEVICES=0 python -m scripts.train_ppo_2action_obstacles \
   --save-dir ./models/obs_p02_lowent --log-dir ./logs/obs_p02_lowent
 ```
 
-### 5.1 결과 — 레버는 움직였으나 성능은 안 따라옴
-학습 4M 완료(clean exit). 학습 지표: `losses/entropy` 1.3 → 0.91로 하락 → 노이즈 축소 레버 자체는 의도대로 작동. 그러나 50ep clean(seed 42, 동일 소형 분포):
+### 5.1 결과 — 노이즈(entropy)는 줄었으나 성능은 안 따라옴
+학습 4M 완료(clean exit). 학습 지표: `losses/entropy` 1.3 → 0.91로 하락 → 노이즈 축소 자체는 의도대로 작동. 그러나 50ep clean(seed 42, 동일 소형 분포):
 
 | 모델 | ent_coef | Mean | Median | Q1 / Q3 | Min(충돌 바닥) | Max |
 |---|---|---|---|---|---|---|
@@ -790,7 +790,7 @@ CUDA_VISIBLE_DEVICES=0 python -m scripts.train_ppo_2action_obstacles \
 
 ### 5.3 판정 — task 천장(~415) 확정
 - 가설 기각. 행동 노이즈 축소는 `losses/entropy`는 내렸지만 clean 성능(Mean·Median·Min)을 못 올렸다.
-- 2-action 장애물 task의 clean 천장은 ~415 (Mean)으로 확정. 코너 패널티(3절)·스텝 증가(4.1절)·노이즈 축소(5절) — 시도한 세 레버 모두 이 천장을 넘지 못했다.
+- 2-action 장애물 task의 clean 천장은 ~415 (Mean)으로 확정. 코너 패널티(3절)·스텝 증가(4.1절)·노이즈 축소(5절) — 시도한 세 가지 개선 요인 모두 이 천장을 넘지 못했다.
 - 최종 채택 모델: `obs_small_p02`(ent_coef 0.01, clean 415/422). lowent는 동급이나 Median·Min에서 미세 열위라 채택하지 않음.
 
 ---
@@ -847,10 +847,10 @@ CUDA_VISIBLE_DEVICES=0 python -m scripts.train_ppo_2action_obstacles \
 4. 픽셀 입력 에이전트는 장애물을 관측에 직접 "그려" 넣어야 한다 — 물리 세계에만 두면 보이지 않는다.
 5. Linux box2d-py는 body 파괴 중 contact 콜백에서 segfault — listener를 먼저 detach하라(macOS가 가려서 로컬에선 안 잡힘).
 6. 벡터 env 로깅은 `infos[key][i]`(dict-of-arrays)로 읽어야 한다 — `infos.get(i)`(정수키)는 무음 실패.
-7. 셰이핑을 추가하기 전에 실패 모드를 측정하라. 계측 평가가 진짜 실패 원인이 트랙 이탈이 아니라 장애물 충돌임을 드러냈다 — 인상에 기반한 보상 항(코너 패널티)은 비(非)레버였다.
+7. 셰이핑을 추가하기 전에 실패 모드를 측정하라. 계측 평가가 진짜 실패 원인이 트랙 이탈이 아니라 장애물 충돌임을 드러냈다 — 인상에 기반한 보상 항(코너 패널티)은 실질적 개선 요인이 아니었다.
 8. 샘플링 vs 결정론 평가는 std가 클 때 크게 다르다 — 샘플링 노이즈가 장애물 충돌을 유발(seed53 결정론 486 vs 샘플링 −36).
 9. "노이즈가 원인"은 가설로 끝내지 말고 직접 검증하라. `ent_coef`로 노이즈를 줄여봤더니(entropy 1.3→0.91) 충돌이 안 줄었다 — 일부는 노이즈로 제거 안 되는 구조적 실패.
-10. 이 태스크는 전반부에 정점 후 정체 — 코너 패널티·스텝 증가·노이즈 축소 세 레버 모두 clean ~415 천장을 못 넘음. 다음 개선은 하이퍼파라미터가 아니라 표현/아키텍처(명시적 장애물 채널, recurrent, 더 큰 CNN) 쪽이어야 한다.
+10. 이 태스크는 전반부에 정점 후 정체 — 코너 패널티·스텝 증가·노이즈 축소 세 가지 개선 요인 모두 clean ~415 천장을 못 넘음. 다음 개선은 하이퍼파라미터가 아니라 표현/아키텍처(명시적 장애물 채널, recurrent, 더 큰 CNN) 쪽이어야 한다.
 11. action 파라미터화는 공짜가 아니다 — 2-action의 ActionWrapper가 유용한 inductive bias. 3-action은 동일 조건에서 clean 229(2-action 415의 ~55%): 독립 gas/brake가 동시입력 퇴화영역·무방비 brake·~2.9배 탐색부피를 만들어 std 발산/저성능을 유발.
 12. 하이퍼파라미터는 차원에 따라 재튜닝하라. 2D에서 안정적이던 `ent_coef 0.01`이 3D에선 entropy를 발산(2.0→5.33)시켰다 — `ent항/policy항` 비율로 균형을 확인하라.
 
@@ -859,7 +859,7 @@ CUDA_VISIBLE_DEVICES=0 python -m scripts.train_ppo_2action_obstacles \
 본 프로젝트는 픽셀 기반 `CarRacing` 위에서 PPO 에이전트를 (1) 무장애물 트랙에서 학습·스케일업하고, (2) 직접 정의한 장애물 환경(`CarRacingObstacles-v0`)으로 일반화한 뒤, (3) 2-action과 3-action 행동 파라미터화를 동일 조건에서 대조했다.
 
 - 최종 산출물. 무장애물 베이스 `models/ppo_2action4/best_model.pth`(clean 667 / median 745), 장애물 회피 `obs_small_p02`(clean 415, task 천장). 평가·재현은 9절 커맨드로 가능하다.
-- 핵심 발견. 장애물 task의 clean 천장(~415)은 코너 패널티·스텝 증가·행동 노이즈 축소 세 레버 모두로 넘지 못했고, 남은 실패는 평가 샘플링 노이즈가 아니라 일부 장애물 배치를 못 푸는 구조적 한계였다. 동일·관대 조건의 3-action은 clean 229(2-action의 ~55%)로, ActionWrapper의 signed-throttle이 *퇴화영역 제거 + 탐색 축소*라는 유용한 inductive bias임을 사후 정당화했다.
+- 핵심 발견. 장애물 task의 clean 천장(~415)은 코너 패널티·스텝 증가·행동 노이즈 축소 세 가지 개선 요인 모두로 넘지 못했고, 남은 실패는 평가 샘플링 노이즈가 아니라 일부 장애물 배치를 못 푸는 구조적 한계였다. 동일·관대 조건의 3-action은 clean 229(2-action의 ~55%)로, ActionWrapper의 signed-throttle이 *퇴화영역 제거 + 탐색 축소*라는 유용한 inductive bias임을 사후 정당화했다.
 - 다음 단계. 추가 개선의 ROI는 하이퍼파라미터가 아니라 표현/아키텍처(명시적 장애물 채널, recurrent, 더 큰 CNN) 쪽에 있다고 판단한다.
 
 ## 9. 부록 — 재현 커맨드
